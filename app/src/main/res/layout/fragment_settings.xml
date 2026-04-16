@@ -34,7 +34,7 @@
         android:layout_marginTop="-40dp"
         app:cardCornerRadius="40dp"
         app:cardElevation="0dp"
-        app:layout_constraintBottom_toTopOf="@id/bottom_nav"
+        app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintTop_toBottomOf="@id/header_bg">
 
         <androidx.core.widget.NestedScrollView
@@ -136,14 +136,14 @@
                             android:checked="true"
                             android:text="Sound Notifications"
                             app:thumbTint="@color/white"
-                            app:trackTint="@color/tofu_orange" />
+                            app:trackTint="@color/switch_track_color" />
                         <com.google.android.material.switchmaterial.SwitchMaterial
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:checked="true"
                             android:text="App Vibration"
                             app:thumbTint="@color/white"
-                            app:trackTint="@color/tofu_orange" />
+                            app:trackTint="@color/switch_track_color" />
                     </LinearLayout>
                 </androidx.cardview.widget.CardView>
 
@@ -220,13 +220,5 @@
             </LinearLayout>
         </androidx.core.widget.NestedScrollView>
     </androidx.cardview.widget.CardView>
-
-    <com.google.android.material.bottomnavigation.BottomNavigationView
-        android:id="@+id/bottom_nav"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:background="@color/white"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:menu="@menu/bottom_nav_menu" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>
