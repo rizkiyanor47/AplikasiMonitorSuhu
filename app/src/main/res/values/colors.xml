@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+
+    <!-- Gradient Colors -->
+    <color name="orange_start">#F2994A</color>
+    <color name="purple_end">#8E2DE2</color>
+
+    <!-- Text Colors -->
+    <color name="tofu_brown">#8B4513</color>
+    <color name="tofu_orange">#D35400</color>
+    <color name="tofu_orange_light">#FFF3E0</color>
+    <color name="text_secondary">#7F8C8D</color>
+
+    <!-- Dashboard Colors -->
+    <color name="status_safe">#27AE60</color>
+    <color name="bg_light">#FDF5E6</color>
+</resources>
