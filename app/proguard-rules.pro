@@ -1,21 +1,34 @@
-# Add project specific ProGuard rules here.
-# You can control the set of applied configuration files using the
-# proguardFiles setting in build.gradle.
-#
-# For more details, see
-#   http://developer.android.com/guide/developing/tools/proguard.html
+# Aturan ProGuard untuk AplikasiMonitorSuhu
 
-# If your project uses WebView with JS, uncomment the following
-# and specify the fully qualified class name to the JavaScript interface
-# class:
-#-keepclassmembers class fqcn.of.javascript.interface.for.webview {
-#   public *;
-#}
+# 1. Menjaga class-class Android dasar
+-keep class android.support.** { *; }
+-keep class androidx.** { *; }
+-dontwarn androidx.**
 
-# Uncomment this to preserve the line number information for
-# debugging stack traces.
-#-keepattributes SourceFile,LineNumberTable
+# 2. Menjaga class Material Components agar tidak crash saat rendering
+-keep class com.google.android.material.** { *; }
+-dontwarn com.google.android.material.**
 
-# If you keep the line number information, uncomment this to
-# hide the original source file name.
-#-renamesourcefileattribute SourceFile
+# 3. Menjaga class Security Crypto (SANGAT PENTING)
+# Agar algoritma enkripsi tidak di-obfuscate dan menyebabkan error
+-keep class androidx.security.crypto.** { *; }
+-dontwarn androidx.security.crypto.**
+
+# 4. Menjaga class-class Activity dan Fragment Anda
+-keep class com.example.aplikasimonitorsuhu.** { *; }
+
+# 5. Aturan Obfuscation tambahan
+-optimizationpasses 5
+-allowaccessmodification
+-dontpreverify
+
+# 6. Menghapus log debug dari versi release untuk keamanan tambahan
+-assumenosideeffects class android.util.Log {
+    public static *** d(...);
+    public static *** v(...);
+    public static *** i(...);
+}
+
+# 7. Mengabaikan warning tentang class yang hilang (Solusi untuk error R8)
+-ignorewarnings
+-dontwarn **
