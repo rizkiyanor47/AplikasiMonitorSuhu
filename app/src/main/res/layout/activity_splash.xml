@@ -4,7 +4,8 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@drawable/bg_gradient">
+    android:background="@drawable/bg_gradient"
+    android:fitsSystemWindows="true">
 
     <View
         android:id="@+id/white_card"
@@ -23,7 +24,7 @@
         android:layout_width="120dp"
         android:layout_height="120dp"
         android:layout_marginTop="64dp"
-        android:src="@drawable/ic_placeholder_rounded"
+        android:src="@drawable/suhutahu"
         app:layout_constraintEnd_toEndOf="@id/white_card"
         app:layout_constraintStart_toStartOf="@id/white_card"
         app:layout_constraintTop_toTopOf="@id/white_card" />
@@ -34,7 +35,7 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="16dp"
         android:text="TofuMonitor"
-        android:textColor="@color/tofu_orange"
+        android:textColor="@color/tofu_brown"
         android:textSize="32sp"
         android:textStyle="bold"
         app:layout_constraintEnd_toEndOf="@id/white_card"
@@ -56,11 +57,11 @@
 
     <ProgressBar
         android:id="@+id/progress_bar"
-        style="?android:attr/progressBarStyleLarge"
-        android:layout_width="60dp"
-        android:layout_height="60dp"
-        android:indeterminateTint="@color/white"
-        android:indeterminateTintMode="src_in"
+        style="?android:attr/progressBarStyle"
+        android:layout_width="80dp"
+        android:layout_height="80dp"
+        android:indeterminate="true"
+        android:indeterminateTint="@color/tofu_orange"
         app:layout_constraintBottom_toTopOf="@+id/ll_politala"
         app:layout_constraintEnd_toEndOf="@id/white_card"
         app:layout_constraintStart_toStartOf="@id/white_card"
@@ -71,17 +72,16 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginBottom="48dp"
-        android:gravity="center_vertical"
+        android:gravity="center"
         android:orientation="horizontal"
         app:layout_constraintBottom_toBottomOf="@id/white_card"
         app:layout_constraintEnd_toEndOf="@id/white_card"
         app:layout_constraintStart_toStartOf="@id/white_card">
 
         <ImageView
-            android:layout_width="24dp"
-            android:layout_height="24dp"
-            android:src="@android:drawable/ic_menu_report_image"
-            app:tint="@color/text_secondary" />
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:src="@drawable/politala" />
 
         <TextView
             android:layout_width="wrap_content"
@@ -89,7 +89,7 @@
             android:layout_marginStart="8dp"
             android:text="POLITALA"
             android:textColor="@color/text_secondary"
-            android:textSize="12sp"
+            android:textSize="14sp"
             android:textStyle="bold" />
     </LinearLayout>
 

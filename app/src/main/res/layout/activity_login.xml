@@ -99,7 +99,7 @@
                         <com.google.android.material.textfield.TextInputEditText
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:hint="operator@tofumonitor.local"
+                            android:hint="nama@gmail.com"
                             android:inputType="textEmailAddress"
                             android:paddingStart="12dp"
                             android:textColorHint="@color/text_secondary" />
@@ -139,7 +139,7 @@
                         <com.google.android.material.textfield.TextInputEditText
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:hint="mask"
+                            android:hint="Minimal 6 karakter"
                             android:inputType="textPassword"
                             android:paddingStart="12dp"
                             android:textColorHint="@color/text_secondary" />
