@@ -16,16 +16,15 @@
 
     <ImageView
         android:id="@+id/iv_logo_dashboard"
-        android:layout_width="80dp"
-        android:layout_height="80dp"
-        android:layout_marginTop="48dp"
-        android:background="@drawable/bg_white_card"
+        android:layout_width="100dp"
+        android:layout_height="100dp"
+        android:layout_marginTop="40dp"
+        android:background="@drawable/bg_icon_container"
         android:padding="16dp"
-        android:src="@drawable/ic_placeholder_rounded"
+        android:src="@drawable/dashboard"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent"
-        app:tint="@color/tofu_orange" />
+        app:layout_constraintTop_toTopOf="parent" />
 
     <!-- Main Content Card with ScrollView -->
     <androidx.cardview.widget.CardView
@@ -54,9 +53,9 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="16dp"
-                    android:text="15:30"
+                    android:text="15.30"
                     android:textColor="@color/tofu_brown"
-                    android:textSize="64sp"
+                    android:textSize="80sp"
                     android:textStyle="bold"
                     app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintStart_toStartOf="parent"
@@ -66,9 +65,10 @@
                     android:id="@+id/tv_timer_label"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Live Timer"
+                    android:text="STATUS PENDINGINAN SAAT INI"
                     android:textColor="@color/tofu_brown"
-                    android:textSize="18sp"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
                     app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintTop_toBottomOf="@id/tv_live_timer" />
@@ -110,7 +110,7 @@
                 <androidx.cardview.widget.CardView
                     android:id="@+id/card_fan"
                     android:layout_width="0dp"
-                    android:layout_height="100dp"
+                    android:layout_height="120dp"
                     android:layout_marginTop="16dp"
                     android:layout_marginEnd="8dp"
                     app:cardBackgroundColor="@color/tofu_orange"
@@ -130,7 +130,7 @@
                             android:layout_height="wrap_content"
                             android:text="Fan:"
                             android:textColor="@color/white"
-                            android:textSize="16sp" />
+                            android:textSize="18sp" />
 
                         <TextView
                             android:layout_width="wrap_content"
@@ -145,7 +145,7 @@
                 <androidx.cardview.widget.CardView
                     android:id="@+id/card_history"
                     android:layout_width="0dp"
-                    android:layout_height="100dp"
+                    android:layout_height="120dp"
                     android:layout_marginStart="8dp"
                     app:cardBackgroundColor="@color/tofu_orange"
                     app:cardCornerRadius="20dp"
@@ -164,24 +164,10 @@
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="Recent History"
+                            android:gravity="center"
+                            android:text="Recent History\n18 min (SAFE)\nView All History"
                             android:textColor="@color/white"
-                            android:textSize="14sp" />
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="18 min (SAFE)"
-                            android:textColor="@color/white"
-                            android:textSize="16sp"
-                            android:textStyle="bold" />
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="View All History →"
-                            android:textColor="@color/white"
-                            android:textSize="10sp" />
+                            android:textSize="12sp" />
                     </LinearLayout>
                 </androidx.cardview.widget.CardView>
 
@@ -207,17 +193,10 @@
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="Longest Tofu Cool Time:"
+                            android:gravity="center"
+                            android:text="Longest Tofu Cool Time:\n30 min (Benchmark)"
                             android:textColor="@color/white"
-                            android:textSize="16sp" />
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="4dp"
-                            android:text="30 min (Benchmark)"
-                            android:textColor="@color/white"
-                            android:textSize="20sp"
+                            android:textSize="16sp"
                             android:textStyle="bold" />
                     </LinearLayout>
                 </androidx.cardview.widget.CardView>

@@ -16,16 +16,15 @@
 
     <ImageView
         android:id="@+id/iv_logo_history"
-        android:layout_width="80dp"
-        android:layout_height="80dp"
-        android:layout_marginTop="48dp"
-        android:background="@drawable/bg_white_card"
+        android:layout_width="100dp"
+        android:layout_height="100dp"
+        android:layout_marginTop="40dp"
+        android:background="@drawable/bg_icon_container"
         android:padding="16dp"
-        android:src="@android:drawable/ic_menu_agenda"
+        android:src="@drawable/histori"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent"
-        app:tint="@color/tofu_orange" />
+        app:layout_constraintTop_toTopOf="parent" />
 
     <!-- History Content Card -->
     <androidx.cardview.widget.CardView
