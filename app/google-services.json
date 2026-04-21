@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "614313442104",
+    "firebase_url": "https://monitoring-suhu-iot-mobile-default-rtdb.asia-southeast1.firebasedatabase.app",
+    "project_id": "monitoring-suhu-iot-mobile",
+    "storage_bucket": "monitoring-suhu-iot-mobile.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:614313442104:android:96a3feb19242dd0f201fcd",
+        "android_client_info": {
+          "package_name": "com.example.aplikasimonitorsuhu"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDFW7kM4XOPHA5Ehffryr58E20MsyqUdOE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
