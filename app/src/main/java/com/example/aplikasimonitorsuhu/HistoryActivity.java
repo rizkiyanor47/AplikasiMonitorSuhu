@@ -2,13 +2,10 @@ package com.example.aplikasimonitorsuhu;
 
 import android.content.Intent;
 import android.os.Bundle;
-
 import androidx.appcompat.app.AppCompatActivity;
-
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 
 public class HistoryActivity extends AppCompatActivity {
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -19,20 +16,36 @@ public class HistoryActivity extends AppCompatActivity {
 
         bottomNav.setOnItemSelectedListener(item -> {
             int itemId = item.getItemId();
+            if (itemId == R.id.nav_history) {
+                return true;
+            }
+
+            Intent intent = null;
             if (itemId == R.id.nav_dashboard) {
-                startActivity(new Intent(this, MainActivity.class));
-                overridePendingTransition(0, 0);
-                finish();
-                return true;
-            } else if (itemId == R.id.nav_history) {
-                return true;
+                intent = new Intent(this, MainActivity.class);
             } else if (itemId == R.id.nav_settings) {
-                startActivity(new Intent(this, SettingsActivity.class));
+                intent = new Intent(this, SettingsActivity.class);
+            } else if (itemId == R.id.nav_profile) {
+                intent = new Intent(this, ProfileActivity.class);
+            }
+
+            if (intent != null) {
+                intent.addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
+                startActivity(intent);
                 overridePendingTransition(0, 0);
-                finish();
                 return true;
             }
             return false;
         });
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        BottomNavigationView bottomNav = findViewById(R.id.bottom_nav);
+        if (bottomNav != null) {
+            bottomNav.setSelectedItemId(R.id.nav_history);
+        }
     }
 }

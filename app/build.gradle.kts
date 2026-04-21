@@ -23,7 +23,7 @@ android {
     buildTypes {
         getByName("debug") {
             isMinifyEnabled = true
-            isShrinkResources = false // Matikan shrinkResources di debug agar build lebih cepat
+            isShrinkResources = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -50,6 +50,12 @@ dependencies {
     implementation(libs.activity)
     implementation(libs.constraintlayout)
     implementation(libs.androidx.security.crypto)
+    
+    // Firebase Cloud Implementation (Wajib untuk UTS)
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.auth)
+    implementation(libs.firebase.database)
+
     testImplementation(libs.junit)
     androidTestImplementation(libs.ext.junit)
     androidTestImplementation(libs.espresso.core)
