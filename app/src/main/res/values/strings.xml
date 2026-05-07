@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">AplikasiMonitorSuhu</string>
+    <string name="target_waktu">Target Waktu</string>
+    <string name="view_all_history"><u>View All History</u></string>
 </resources>

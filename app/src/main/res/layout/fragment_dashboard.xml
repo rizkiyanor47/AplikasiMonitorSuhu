@@ -49,17 +49,29 @@
 
                 <!-- Timer Section -->
                 <TextView
-                    android:id="@+id/tv_live_timer"
+                    android:id="@+id/tv_target_label"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="16dp"
-                    android:text="15.30"
+                    android:text="@string/target_waktu"
+                    android:textColor="@color/tofu_brown"
+                    android:textSize="18sp"
+                    android:textStyle="bold"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toTopOf="parent" />
+
+                <TextView
+                    android:id="@+id/tv_live_timer"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="10:00"
                     android:textColor="@color/tofu_brown"
                     android:textSize="80sp"
                     android:textStyle="bold"
                     app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toTopOf="parent" />
+                    app:layout_constraintTop_toBottomOf="@id/tv_target_label" />
 
                 <TextView
                     android:id="@+id/tv_timer_label"
@@ -165,9 +177,19 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:gravity="center"
-                            android:text="Recent History\n18 min (SAFE)\nView All History"
+                            android:text="Recent History\n18 min (SAFE)"
                             android:textColor="@color/white"
                             android:textSize="12sp" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="4dp"
+                            android:gravity="center"
+                            android:text="@string/view_all_history"
+                            android:textColor="@color/link_blue"
+                            android:textSize="12sp"
+                            android:textStyle="bold" />
                     </LinearLayout>
                 </androidx.cardview.widget.CardView>
 
