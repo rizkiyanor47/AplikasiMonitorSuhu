@@ -1,0 +1,54 @@
+<resources>
+    <string name="app_name">Aplikasi Monitor Suhu Tahu</string>
+    <string name="default_web_client_id">398349499652-8oua26l5tbc2qa4d9eu48jjkju6n6fs6.apps.googleusercontent.com</string>
+
+    <!-- Login -->
+    <string name="login_title">Masuk ke Akun</string>
+    <string name="hint_email">Alamat Email</string>
+    <string name="hint_password">Kata Sandi</string>
+    <string name="btn_login">Masuk</string>
+    <string name="remember_me">Ingat Saya</string>
+    <string name="forgot_password">Lupa Kata Sandi?</string>
+    <string name="or_login_with">Atau masuk dengan</string>
+
+    <!-- Dashboard Strings -->
+    <string name="title_dashboard">Beranda Utama</string>
+    <string name="label_status_pendinginan">DURASI PENDINGINAN</string>
+    <string name="label_status">Status:</string>
+    <string name="status_aman">SIAP KEMAS</string>
+    <string name="status_peringatan">WASPADAI SUHU</string>
+    <string name="status_bahaya">SUHU TERLALU PANAS</string>
+
+    <string name="label_kipas">Kipas Pendingin</string>
+    <string name="kipas_nyala">AKTIF</string>
+    <string name="kipas_mati">MATI</string>
+
+    <string name="label_riwayat_terakhir">Riwayat Terakhir</string>
+    <string name="label_lihat_semua">Lihat Semua ></string>
+
+    <string name="label_waktu_terlama">Rekor Terlama</string>
+    <string name="format_menit">%1$s menit</string>
+    <string name="format_patokan">%1$s (Patokan)</string>
+
+    <!-- History -->
+    <string name="title_history">Riwayat Pendinginan</string>
+    <string name="label_durasi">Durasi</string>
+    <string name="label_suhu_akhir">Suhu Akhir</string>
+    <string name="label_tanggal">Tanggal</string>
+    <string name="status_selesai">Selesai</string>
+
+    <!-- Settings -->
+    <string name="title_settings">Pengaturan Alat</string>
+    <string name="label_perangkat">Perangkat &amp; Koneksi</string>
+    <string name="label_nama_alat">Nama Alat:</string>
+    <string name="status_online">Tersambung</string>
+    <string name="status_offline">Terputus</string>
+    <string name="label_notifikasi">Pengaturan Notifikasi</string>
+    <string name="label_suara">Notifikasi Suara</string>
+    <string name="label_getar">Getaran Aplikasi</string>
+    <string name="label_sinyal">Sinyal WIFI</string>
+    <string name="sinyal_kuat">Kuat</string>
+    <string name="btn_logout">Keluar Akun</string>
+    <string name="label_logged_in_as">Masuk sebagai: %1$s</string>
+    <string name="label_version">Versi Aplikasi: %1$s</string>
+</resources>

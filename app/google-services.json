@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "398349499652",
+    "project_id": "tofumonitor",
+    "storage_bucket": "tofumonitor.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:398349499652:android:48bc868d95aa8d6419a451",
+        "android_client_info": {
+          "package_name": "com.example.aplikasimonitorsuhu"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "398349499652-1j4oj5hpc3l968d54fifj90sjktg7b8b.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.aplikasimonitorsuhu",
+            "certificate_hash": "2366e9a588a0517c9e1e435078967b3bf0a7a157"
+          }
+        },
+        {
+          "client_id": "398349499652-8oua26l5tbc2qa4d9eu48jjkju6n6fs6.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAoEVnoDQvJ_QiYxDUigvbAKuc2EULbzW0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "398349499652-8oua26l5tbc2qa4d9eu48jjkju6n6fs6.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
