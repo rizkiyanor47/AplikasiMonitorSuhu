@@ -14,28 +14,18 @@
         android:background="@drawable/bg_gradient"
         app:layout_constraintTop_toTopOf="parent" />
 
-    <!-- Hanya Inisial Besar di Tengah -->
-    <FrameLayout
+    <!-- Ikon Pengaturan di Tengah -->
+    <ImageView
         android:id="@+id/iv_logo_settings"
         android:layout_width="100dp"
         android:layout_height="100dp"
         android:layout_marginTop="60dp"
-        android:background="@drawable/bg_circle_white"
-        android:elevation="8dp"
+        android:background="@drawable/bg_icon_container"
+        android:padding="16dp"
+        android:src="@drawable/pengaturan"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent">
-
-        <TextView
-            android:id="@+id/tv_settings_initial"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="center"
-            android:text="--"
-            android:textColor="@color/orange_start"
-            android:textSize="32sp"
-            android:textStyle="bold" />
-    </FrameLayout>
+        app:layout_constraintTop_toTopOf="parent" />
 
     <!-- Settings Content Card -->
     <androidx.cardview.widget.CardView
@@ -62,7 +52,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="@string/label_perangkat"
+                    android:text="Informasi Perangkat"
                     android:textColor="@color/tofu_brown"
                     android:textSize="18sp"
                     android:textStyle="bold" />
@@ -83,12 +73,12 @@
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="@string/label_nama_alat"
+                            android:text="Nama Alat"
                             android:textColor="@color/black" />
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="ESP32-Pendingin-01"
+                            android:text="ESP32-Tofu-01"
                             android:textColor="@color/text_secondary"
                             android:textStyle="bold" />
                         <View
@@ -102,7 +92,7 @@
                             <TextView
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:text="Status"
+                                android:text="Status Koneksi"
                                 android:textColor="@color/black" />
                             <LinearLayout
                                 android:layout_width="wrap_content"
@@ -119,7 +109,7 @@
                                 <TextView
                                     android:layout_width="wrap_content"
                                     android:layout_height="wrap_content"
-                                    android:text="@string/status_online"
+                                    android:text="Terhubung"
                                     android:textColor="#27AE60"
                                     android:textStyle="bold" />
                             </LinearLayout>
@@ -131,12 +121,12 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="24dp"
-                    android:text="@string/label_notifikasi"
+                    android:text="Notifikasi &amp; Alert"
                     android:textColor="@color/tofu_brown"
                     android:textSize="18sp"
                     android:textStyle="bold" />
 
-                <!-- Switches Card (DIPERBAIKI) -->
+                <!-- Switches Card -->
                 <androidx.cardview.widget.CardView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
@@ -156,10 +146,8 @@
                             android:layout_height="wrap_content"
                             android:checked="true"
                             android:paddingHorizontal="8dp"
-                            android:text="@string/label_suara"
-                            android:textColor="@color/black"
-                            app:thumbTint="@color/nav_item_color"
-                            app:trackTint="@color/nav_item_color" />
+                            android:text="Suara Peringatan"
+                            android:textColor="@color/black" />
 
                         <com.google.android.material.switchmaterial.SwitchMaterial
                             android:id="@+id/switch_vibrate"
@@ -167,83 +155,18 @@
                             android:layout_height="wrap_content"
                             android:checked="true"
                             android:paddingHorizontal="8dp"
-                            android:text="@string/label_getar"
-                            android:textColor="@color/black"
-                            app:thumbTint="@color/nav_item_color"
-                            app:trackTint="@color/nav_item_color" />
+                            android:text="Getaran Aplikasi"
+                            android:textColor="@color/black" />
                     </LinearLayout>
                 </androidx.cardview.widget.CardView>
 
+                <!-- Info Versi -->
                 <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="24dp"
-                    android:text="Koneksi"
-                    android:textColor="@color/tofu_brown"
-                    android:textSize="18sp"
-                    android:textStyle="bold" />
-
-                <!-- Connection Card -->
-                <androidx.cardview.widget.CardView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
-                    app:cardBackgroundColor="@color/white"
-                    app:cardCornerRadius="16dp"
-                    app:cardElevation="2dp">
-                    <RelativeLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:padding="16dp">
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="@string/label_sinyal"
-                            android:textColor="@color/black" />
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_alignParentEnd="true"
-                            android:text="@string/sinyal_kuat"
-                            android:textColor="@color/black"
-                            android:textStyle="bold" />
-                    </RelativeLayout>
-                </androidx.cardview.widget.CardView>
-
-                <!-- Logout Button -->
-                <Button
-                    android:id="@+id/btn_logout"
-                    android:layout_width="match_parent"
-                    android:layout_height="56dp"
-                    android:layout_marginTop="32dp"
-                    android:backgroundTint="@color/tofu_orange"
-                    android:drawableStart="@android:drawable/ic_lock_power_off"
-                    android:drawablePadding="8dp"
-                    android:paddingHorizontal="24dp"
-                    android:text="@string/btn_logout"
-                    android:textAllCaps="false"
-                    android:textColor="@color/white"
-                    android:textSize="16sp"
-                    app:cornerRadius="28dp" />
-
-                <!-- Footer Info -->
-                <TextView
-                    android:id="@+id/tv_user_email"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="24dp"
+                    android:layout_marginTop="48dp"
                     android:gravity="center"
-                    android:text="Masuk sebagai: ..."
-                    android:textColor="@color/text_secondary"
-                    android:textSize="12sp" />
-
-                <TextView
-                    android:id="@+id/tv_app_version"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
-                    android:gravity="center"
-                    android:text="Versi Aplikasi: v1.0.0"
+                    android:text="TofuMonitor v1.0.0"
                     android:textColor="@color/text_secondary"
                     android:textSize="12sp" />
 

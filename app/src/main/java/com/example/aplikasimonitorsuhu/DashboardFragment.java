@@ -37,7 +37,7 @@ public class DashboardFragment extends Fragment {
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.fragment_dashboard, container, false);
 
-        // Inisialisasi View
+        // 1. Inisialisasi View
         tvTimer = view.findViewById(R.id.tv_timer_val);
         tvStatus = view.findViewById(R.id.tv_status_text);
         tvFanStatus = view.findViewById(R.id.tv_fan_status);
@@ -48,17 +48,36 @@ public class DashboardFragment extends Fragment {
         tvRecentTemp = view.findViewById(R.id.tv_recent_temp_val);
         btnToHistory = view.findViewById(R.id.btn_to_history);
         btnSeeAll = view.findViewById(R.id.btn_see_all);
+        
+        // Foto profil (lingkaran inisial)
         btnProfileNav = view.findViewById(R.id.btn_profile_nav);
         tvProfileInitial = view.findViewById(R.id.tv_profile_initial);
 
-        // Set Inisial User dari Email
+        // 2. Set Inisial User (2 Huruf)
         FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
         if (user != null && user.getEmail() != null) {
             String email = user.getEmail();
-            String initial = email.substring(0, Math.min(email.length(), 2)).toUpperCase();
-            if (tvProfileInitial != null) tvProfileInitial.setText(initial);
+            if (email.length() >= 2) {
+                tvProfileInitial.setText(email.substring(0, 2).toUpperCase());
+            } else {
+                tvProfileInitial.setText(email.substring(0, 1).toUpperCase());
+            }
         }
 
+        // 3. Logika Klik Foto Profil (PINDAH KE PROFIL)
+        if (btnProfileNav != null) {
+            btnProfileNav.setOnClickListener(v -> {
+                if (getActivity() != null) {
+                    BottomNavigationView nav = getActivity().findViewById(R.id.bottom_nav);
+                    if (nav != null) {
+                        // Memaksa BottomNav pindah ke menu Profil
+                        nav.setSelectedItemId(R.id.nav_profile);
+                    }
+                }
+            });
+        }
+
+        // 4. Inisialisasi Database
         try {
             dbRoot = FirebaseDatabase.getInstance(DB_URL).getReference();
             startMonitoring();
@@ -67,25 +86,15 @@ public class DashboardFragment extends Fragment {
             Toast.makeText(getContext(), "Gagal menyambung ke database.", Toast.LENGTH_LONG).show();
         }
 
-        // Navigasi ke History (Sinkron dengan Bottom Nav)
+        // 5. Navigasi ke History
         View.OnClickListener toHistoryListener = v -> {
             if (getActivity() != null) {
                 BottomNavigationView nav = getActivity().findViewById(R.id.bottom_nav);
                 if (nav != null) nav.setSelectedItemId(R.id.nav_history);
             }
         };
-        btnToHistory.setOnClickListener(toHistoryListener);
-        btnSeeAll.setOnClickListener(toHistoryListener);
-
-        // Navigasi ke Settings via Klik Profil (Sinkron dengan Bottom Nav)
-        if (btnProfileNav != null) {
-            btnProfileNav.setOnClickListener(v -> {
-                if (getActivity() != null) {
-                    BottomNavigationView nav = getActivity().findViewById(R.id.bottom_nav);
-                    if (nav != null) nav.setSelectedItemId(R.id.nav_settings);
-                }
-            });
-        }
+        if (btnToHistory != null) btnToHistory.setOnClickListener(toHistoryListener);
+        if (btnSeeAll != null) btnSeeAll.setOnClickListener(toHistoryListener);
 
         return view;
     }
@@ -99,16 +108,11 @@ public class DashboardFragment extends Fragment {
                     if (timerValue != null) tvTimer.setText(timerValue);
 
                     String currentFan = "MATI";
-                    for (DataSnapshot child : snapshot.getChildren()) {
-                        String key = child.getKey();
-                        if (key != null && key.trim().equalsIgnoreCase("fan")) {
-                            Object val = child.getValue();
-                            if (val != null) {
-                                String valStr = val.toString().trim();
-                                if (valStr.equalsIgnoreCase("Hidup") || valStr.equalsIgnoreCase("ON")) {
-                                    currentFan = "AKTIF";
-                                }
-                            }
+                    Object fanVal = snapshot.child("fan").getValue();
+                    if (fanVal != null) {
+                        String valStr = fanVal.toString().trim();
+                        if (valStr.equalsIgnoreCase("Hidup") || valStr.equalsIgnoreCase("ON") || valStr.equalsIgnoreCase("AKTIF")) {
+                            currentFan = "AKTIF";
                         }
                     }
                     tvFanStatus.setText(currentFan);
@@ -118,10 +122,6 @@ public class DashboardFragment extends Fragment {
                         try {
                             double suhu = Double.parseDouble(suhuObj.toString());
                             updateUIBySuhu(suhu);
-                            
-                            if (suhu > 35 && currentFan.equals("MATI")) {
-                                dbRoot.child("monitoring").child("fan").setValue("Hidup");
-                            }
                         } catch (Exception e) {
                             tvStatus.setText(suhuObj.toString());
                         }
@@ -150,25 +150,33 @@ public class DashboardFragment extends Fragment {
     }
 
     private void fetchHistorySummary() {
+        dbRoot.child("history").limitToLast(1).addValueEventListener(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot snapshot) {
+                if (snapshot.exists() && isAdded()) {
+                    for (DataSnapshot child : snapshot.getChildren()) {
+                        tvRecentDate.setText(String.valueOf(child.child("tanggal").getValue()));
+                        tvRecentDuration.setText(String.valueOf(child.child("durasi").getValue()));
+                        Object sAkhir = child.child("suhu_akhir").getValue();
+                        if (sAkhir == null) sAkhir = child.child("suhu").getValue();
+                        if (sAkhir != null) tvRecentTemp.setText(sAkhir.toString() + "°C");
+                    }
+                }
+            }
+            @Override
+            public void onCancelled(@NonNull DatabaseError error) {}
+        });
+        
         dbRoot.child("history").addValueEventListener(new ValueEventListener() {
             @Override
             public void onDataChange(@NonNull DataSnapshot snapshot) {
                 if (snapshot.exists() && isAdded()) {
-                    DataSnapshot lastChild = null;
                     String maxDur = "00:00";
                     for (DataSnapshot child : snapshot.getChildren()) {
-                        lastChild = child;
                         String dur = child.child("durasi").getValue(String.class);
                         if (dur != null && dur.compareTo(maxDur) > 0) maxDur = dur;
                     }
                     tvLongestTime.setText(maxDur);
-                    if (lastChild != null) {
-                        tvRecentDate.setText(String.valueOf(lastChild.child("tanggal").getValue()));
-                        tvRecentDuration.setText(String.valueOf(lastChild.child("durasi").getValue()));
-                        Object sAkhir = lastChild.child("suhu_akhir").getValue();
-                        if (sAkhir == null) sAkhir = lastChild.child("suhu").getValue();
-                        if (sAkhir != null) tvRecentTemp.setText(sAkhir.toString() + "°C");
-                    }
                 }
             }
             @Override

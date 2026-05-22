@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@drawable/bg_gradient"
@@ -24,6 +23,7 @@
         android:layout_width="120dp"
         android:layout_height="120dp"
         android:layout_marginTop="64dp"
+        android:contentDescription="@string/desc_logo_tofu"
         android:src="@drawable/suhutahu"
         app:layout_constraintEnd_toEndOf="@id/white_card"
         app:layout_constraintStart_toStartOf="@id/white_card"
@@ -34,7 +34,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="16dp"
-        android:text="TofuMonitor"
+        android:text="@string/title_tofumonitor"
         android:textColor="@color/tofu_brown"
         android:textSize="32sp"
         android:textStyle="bold"
@@ -48,7 +48,7 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
         android:gravity="center"
-        android:text="Pantau Suhu Tahu\nSecara Langsung"
+        android:text="@string/subtitle_splash"
         android:textColor="@color/tofu_orange"
         android:textSize="14sp"
         app:layout_constraintEnd_toEndOf="@id/white_card"
@@ -62,36 +62,26 @@
         android:layout_height="80dp"
         android:indeterminate="true"
         android:indeterminateTint="@color/tofu_orange"
-        app:layout_constraintBottom_toTopOf="@+id/ll_politala"
+        app:layout_constraintBottom_toTopOf="@+id/tv_politala_label"
         app:layout_constraintEnd_toEndOf="@id/white_card"
         app:layout_constraintStart_toStartOf="@id/white_card"
         app:layout_constraintTop_toBottomOf="@id/tv_subtitle" />
 
-    <LinearLayout
-        android:id="@+id/ll_politala"
+    <TextView
+        android:id="@+id/tv_politala_label"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginBottom="48dp"
+        android:drawablePadding="8dp"
         android:gravity="center"
-        android:orientation="horizontal"
+        android:text="@string/label_politala"
+        android:textColor="@color/text_secondary"
+        android:textSize="14sp"
+        android:textStyle="bold"
+        app:drawableStartCompat="@drawable/politala"
         app:layout_constraintBottom_toBottomOf="@id/white_card"
         app:layout_constraintEnd_toEndOf="@id/white_card"
-        app:layout_constraintStart_toStartOf="@id/white_card">
-
-        <ImageView
-            android:layout_width="32dp"
-            android:layout_height="32dp"
-            android:src="@drawable/politala" />
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="8dp"
-            android:text="POLITALA"
-            android:textColor="@color/text_secondary"
-            android:textSize="14sp"
-            android:textStyle="bold" />
-    </LinearLayout>
+        app:layout_constraintStart_toStartOf="@id/white_card" />
 
     <TextView
         android:id="@+id/tv_footer"
@@ -99,7 +89,7 @@
         android:layout_height="wrap_content"
         android:layout_marginBottom="24dp"
         android:gravity="center"
-        android:text="Suhu Tahu Goreng IoT v1.0.0\nPOLITALA"
+        android:text="@string/footer_splash"
         android:textColor="@color/tofu_brown"
         android:textSize="12sp"
         app:layout_constraintBottom_toBottomOf="parent"

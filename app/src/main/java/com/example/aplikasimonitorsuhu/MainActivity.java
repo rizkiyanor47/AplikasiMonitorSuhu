@@ -31,6 +31,8 @@ public class MainActivity extends AppCompatActivity {
                 selectedFragment = new DashboardFragment();
             } else if (itemId == R.id.nav_history) {
                 selectedFragment = new HistoryFragment();
+            } else if (itemId == R.id.nav_profile) {
+                selectedFragment = new ProfileFragment();
             } else if (itemId == R.id.nav_settings) {
                 selectedFragment = new SettingsFragment();
             }
