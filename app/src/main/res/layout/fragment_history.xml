@@ -6,7 +6,7 @@
     android:layout_height="match_parent"
     android:background="@color/bg_light">
 
-    <!-- Header Gradient -->
+    <!-- Header Gradient (Sama dengan Profil) -->
     <View
         android:id="@+id/header_bg"
         android:layout_width="match_parent"
@@ -35,6 +35,7 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent" />
 
+        <!-- Tombol Profil (Navigasi ke Profil) -->
         <FrameLayout
             android:id="@+id/btn_profile_nav"
             android:layout_width="45dp"
@@ -47,6 +48,7 @@
             android:foreground="?attr/selectableItemBackgroundBorderless"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintTop_toTopOf="parent">
+
             <TextView
                 android:id="@+id/tv_profile_initial"
                 android:layout_width="wrap_content"
@@ -59,16 +61,16 @@
         </FrameLayout>
     </androidx.constraintlayout.widget.ConstraintLayout>
 
-    <!-- History Content Card (Kembali ke Putih) -->
+    <!-- History Content Card (Disamakan dengan Profil: bg_light dan margin -40dp) -->
     <androidx.cardview.widget.CardView
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_marginTop="20dp"
-        app:cardBackgroundColor="@color/white"
+        android:layout_marginTop="-40dp"
+        app:cardBackgroundColor="@color/bg_light"
         app:cardCornerRadius="40dp"
         app:cardElevation="0dp"
         app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/cl_header_history">
+        app:layout_constraintTop_toBottomOf="@id/header_bg">
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -110,4 +112,5 @@
                 tools:listitem="@layout/item_history" />
         </LinearLayout>
     </androidx.cardview.widget.CardView>
+
 </androidx.constraintlayout.widget.ConstraintLayout>
