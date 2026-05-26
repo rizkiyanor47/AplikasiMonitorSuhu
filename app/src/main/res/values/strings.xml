@@ -9,7 +9,7 @@
     <string name="desc_logo_tofu">Logo TofuMonitor</string>
     <string name="desc_logo_politala">Logo Politala</string>
 
-    <!-- Strings for Login -->
+    <!-- Strings Login -->
     <string name="hint_email">Email</string>
     <string name="hint_password">Password</string>
     <string name="remember_me">Ingat Saya</string>
@@ -17,7 +17,7 @@
     <string name="btn_login">Masuk</string>
     <string name="or_login_with">Atau masuk dengan</string>
 
-    <!-- Strings for History -->
+    <!-- Strings Riwayat -->
     <string name="title_history">Riwayat Pemantauan</string>
     <string name="label_durasi">Durasi</string>
     <string name="label_suhu_akhir">Suhu Akhir</string>
@@ -26,7 +26,7 @@
     <string name="filter_minggu">Per Minggu</string>
     <string name="filter_bulan">Per Bulan</string>
 
-    <!-- Strings for Settings -->
+    <!-- Strings Pengaturan -->
     <string name="label_perangkat">Informasi Perangkat</string>
     <string name="label_nama_alat">Nama Alat</string>
     <string name="status_online">Terhubung</string>
@@ -37,7 +37,7 @@
     <string name="sinyal_kuat">Terhubung</string>
     <string name="btn_logout">Keluar Akun</string>
 
-    <!-- Strings for Dashboard -->
+    <!-- Strings Dashboard -->
     <string name="label_status">Status:</string>
     <string name="label_kipas">Kipas Pendingin</string>
     <string name="label_waktu_terlama">Rekor Terlama</string>

@@ -3,9 +3,12 @@ package com.example.aplikasimonitorsuhu;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
+import android.text.InputType;
 import android.text.TextUtils;
 import android.util.Log;
+import android.view.ViewGroup;
 import android.widget.EditText;
+import android.widget.FrameLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -84,20 +87,34 @@ public class LoginActivity extends AppCompatActivity {
     }
 
     private void showForgotPasswordDialog() {
+        // Membuat container dengan padding agar tampilan dialog rapi
+        FrameLayout container = new FrameLayout(this);
+        FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        params.leftMargin = 50; // Jarak kiri
+        params.rightMargin = 50; // Jarak kanan
+        
         EditText resetMail = new EditText(this);
+        resetMail.setHint("contoh@gmail.com");
+        resetMail.setInputType(InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS);
+        resetMail.setLayoutParams(params);
+        container.addView(resetMail);
+
         AlertDialog.Builder passwordResetDialog = new AlertDialog.Builder(this);
         passwordResetDialog.setTitle("Lupa Kata Sandi?");
-        passwordResetDialog.setMessage("Masukkan alamat email Anda untuk menerima kiriman pengaturan ulang kata sandi.");
-        passwordResetDialog.setView(resetMail);
+        passwordResetDialog.setMessage("Masukkan email Anda. Kami akan mengirimkan tautan untuk mengatur ulang kata sandi.");
+        passwordResetDialog.setView(container);
 
         passwordResetDialog.setPositiveButton("Kirim", (dialog, which) -> {
             String mail = resetMail.getText().toString().trim();
             if (!TextUtils.isEmpty(mail)) {
                 mAuth.sendPasswordResetEmail(mail).addOnSuccessListener(unused -> 
-                    Toast.makeText(LoginActivity.this, "Petunjuk pengaturan ulang telah dikirim ke email Anda.", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(LoginActivity.this, "Tautan berhasil dikirim! Silakan periksa kotak masuk atau folder spam Anda.", Toast.LENGTH_LONG).show()
                 ).addOnFailureListener(e -> 
                     Toast.makeText(LoginActivity.this, translateAuthError(e), Toast.LENGTH_SHORT).show()
                 );
+            } else {
+                Toast.makeText(this, "Mohon isi alamat email.", Toast.LENGTH_SHORT).show();
             }
         });
 
@@ -127,15 +144,16 @@ public class LoginActivity extends AppCompatActivity {
 
     private void firebaseAuthWithGoogle(String idToken) {
         AuthCredential credential = GoogleAuthProvider.getCredential(idToken, null);
-        mAuth.signInWithCredential(credential).addOnCompleteListener(this, task -> {
-            if (task.isSuccessful()) {
-                FirebaseUser user = mAuth.getCurrentUser();
-                if (user != null) saveLoginStatus(true, user.getEmail());
-                goToMainActivity();
-            } else {
-                Toast.makeText(this, "Gagal masuk. Silakan coba lagi.", Toast.LENGTH_SHORT).show();
-            }
-        });
+        mAuth.signInWithCredential(credential)
+                .addOnCompleteListener(this, task -> {
+                    if (task.isSuccessful()) {
+                        FirebaseUser user = mAuth.getCurrentUser();
+                        if (user != null) saveLoginStatus(true, user.getEmail());
+                        goToMainActivity();
+                    } else {
+                        Toast.makeText(this, "Gagal masuk. Silakan coba lagi.", Toast.LENGTH_SHORT).show();
+                    }
+                });
     }
 
     private void performLogin() {
@@ -159,9 +177,6 @@ public class LoginActivity extends AppCompatActivity {
         });
     }
 
-    /**
-     * Mengubah pesan error teknis Firebase ke Bahasa Indonesia yang mudah dimengerti awam.
-     */
     private String translateAuthError(Exception e) {
         String message = "Terjadi kesalahan. Silakan coba lagi nanti.";
         if (e instanceof FirebaseAuthException) {
@@ -174,7 +189,7 @@ public class LoginActivity extends AppCompatActivity {
                     message = "Kata sandi salah. Silakan periksa kembali.";
                     break;
                 case "ERROR_USER_NOT_FOUND":
-                    message = "Alamat email tidak terdaftar.";
+                    message = "Alamat email tidak terdaftar di sistem kami.";
                     break;
                 case "ERROR_USER_DISABLED":
                     message = "Akun ini telah dinonaktifkan.";
