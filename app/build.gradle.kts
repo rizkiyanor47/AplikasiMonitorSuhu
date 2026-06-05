@@ -50,6 +50,9 @@ dependencies {
 
     implementation("androidx.cardview:cardview:1.0.0")
     
+    // reCAPTCHA Enterprise
+    implementation(libs.recaptcha)
+    
     testImplementation(libs.junit)
     androidTestImplementation(libs.ext.junit)
     androidTestImplementation(libs.espresso.core)

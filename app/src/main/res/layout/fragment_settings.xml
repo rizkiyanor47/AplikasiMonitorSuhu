@@ -6,7 +6,6 @@
     android:layout_height="match_parent"
     android:background="@color/bg_light">
 
-    <!-- Header Gradient -->
     <View
         android:id="@+id/header_bg"
         android:layout_width="match_parent"
@@ -14,20 +13,19 @@
         android:background="@drawable/bg_gradient"
         app:layout_constraintTop_toTopOf="parent" />
 
-    <!-- Ikon Pengaturan di Tengah -->
     <ImageView
         android:id="@+id/iv_logo_settings"
         android:layout_width="100dp"
         android:layout_height="100dp"
         android:layout_marginTop="60dp"
-        android:background="@drawable/bg_icon_container"
+        android:background="@drawable/bg_circle_white"
+        android:elevation="4dp"
         android:padding="16dp"
         android:src="@drawable/pengaturan"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
 
-    <!-- Settings Content Card -->
     <androidx.cardview.widget.CardView
         android:layout_width="match_parent"
         android:layout_height="0dp"
@@ -57,7 +55,6 @@
                     android:textSize="18sp"
                     android:textStyle="bold" />
 
-                <!-- Device Info Card -->
                 <androidx.cardview.widget.CardView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
@@ -78,7 +75,7 @@
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="ESP32-Tofu-01"
+                            android:text="ESP32-Tofu-Monitor"
                             android:textColor="@color/text_secondary"
                             android:textStyle="bold" />
                         <View
@@ -94,25 +91,14 @@
                                 android:layout_height="wrap_content"
                                 android:text="Status Koneksi"
                                 android:textColor="@color/black" />
-                            <LinearLayout
+                            <TextView
+                                android:id="@+id/tv_conn_status"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:layout_alignParentEnd="true"
-                                android:gravity="center_vertical"
-                                android:orientation="horizontal">
-                                <View
-                                    android:layout_width="8dp"
-                                    android:layout_height="8dp"
-                                    android:layout_marginEnd="6dp"
-                                    android:background="@drawable/bg_circle_white"
-                                    android:backgroundTint="#27AE60" />
-                                <TextView
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="wrap_content"
-                                    android:text="Terhubung"
-                                    android:textColor="#27AE60"
-                                    android:textStyle="bold" />
-                            </LinearLayout>
+                                android:text="Mengecek..."
+                                android:textColor="@color/text_secondary"
+                                android:textStyle="bold" />
                         </RelativeLayout>
                     </LinearLayout>
                 </androidx.cardview.widget.CardView>
@@ -126,7 +112,6 @@
                     android:textSize="18sp"
                     android:textStyle="bold" />
 
-                <!-- Switches Card -->
                 <androidx.cardview.widget.CardView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
@@ -139,28 +124,23 @@
                         android:layout_height="wrap_content"
                         android:orientation="vertical"
                         android:padding="8dp">
-
                         <com.google.android.material.switchmaterial.SwitchMaterial
                             android:id="@+id/switch_sound"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:checked="true"
                             android:paddingHorizontal="8dp"
                             android:text="Suara Peringatan"
                             android:textColor="@color/black" />
-
                         <com.google.android.material.switchmaterial.SwitchMaterial
                             android:id="@+id/switch_vibrate"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:checked="true"
                             android:paddingHorizontal="8dp"
                             android:text="Getaran Aplikasi"
                             android:textColor="@color/black" />
                     </LinearLayout>
                 </androidx.cardview.widget.CardView>
 
-                <!-- Info Versi -->
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"

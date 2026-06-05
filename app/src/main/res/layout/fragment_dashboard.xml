@@ -102,11 +102,23 @@
                         android:textColor="#7B241C"
                         android:textSize="12sp"
                         android:textStyle="bold" />
+
+                    <!-- Tombol Mulai/Berhenti -->
+                    <androidx.appcompat.widget.AppCompatButton
+                        android:id="@+id/btn_start_process"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="16dp"
+                        android:background="@drawable/bg_badge_orange"
+                        android:text="Mulai Proses Pendinginan"
+                        android:textColor="@color/white"
+                        android:textStyle="bold" />
+
                     <androidx.cardview.widget.CardView
                         android:id="@+id/card_status"
                         android:layout_width="match_parent"
                         android:layout_height="110dp"
-                        android:layout_marginTop="32dp"
+                        android:layout_marginTop="16dp"
                         app:cardBackgroundColor="@color/status_safe"
                         app:cardCornerRadius="25dp"
                         app:cardElevation="0dp">

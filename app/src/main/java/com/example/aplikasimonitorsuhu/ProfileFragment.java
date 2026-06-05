@@ -21,6 +21,7 @@ import com.google.android.gms.auth.api.signin.GoogleSignInClient;
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.database.FirebaseDatabase;
 
 import java.io.IOException;
 import java.security.GeneralSecurityException;
@@ -38,7 +39,6 @@ public class ProfileFragment extends Fragment {
 
         mAuth = FirebaseAuth.getInstance();
         
-        // Konfigurasi Google Sign-In agar bisa logout dengan bersih
         GoogleSignInOptions gso = new GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
                 .requestIdToken(getString(R.string.default_web_client_id))
                 .requestEmail()
@@ -55,15 +55,11 @@ public class ProfileFragment extends Fragment {
             String email = user.getEmail();
             String name = user.getDisplayName();
             
-            // Set Email
             tvEmail.setText(email != null ? email : "-");
-            
-            // Set Nama (Jika ada dari Google, jika tidak pakai panggil default)
             if (name != null && !name.isEmpty()) {
                 tvName.setText(name);
             }
 
-            // Set Inisial (2 Huruf sesuai Dashboard)
             if (email != null && email.length() >= 2) {
                 String initial = email.substring(0, 2).toUpperCase();
                 tvInitial.setText(initial);
@@ -78,6 +74,16 @@ public class ProfileFragment extends Fragment {
     }
 
     private void performLogout() {
+        FirebaseUser user = mAuth.getCurrentUser();
+        if (user != null) {
+            // Hapus session ID di Firebase agar login berikutnya bersih
+            FirebaseDatabase.getInstance("https://tofumonitor-default-rtdb.asia-southeast1.firebasedatabase.app/")
+                    .getReference("users")
+                    .child(user.getUid())
+                    .child("current_session_id")
+                    .removeValue();
+        }
+
         mAuth.signOut();
         mGoogleSignInClient.signOut().addOnCompleteListener(requireActivity(), task -> {
             clearLocalSession();
@@ -97,7 +103,7 @@ public class ProfileFragment extends Fragment {
                         EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
                         EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM);
 
-                sharedPreferences.edit().clear().apply();
+                sharedPreferences.edit().clear().commit(); // Gunakan commit untuk kepastian
 
                 Intent intent = new Intent(getActivity(), LoginActivity.class);
                 intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
