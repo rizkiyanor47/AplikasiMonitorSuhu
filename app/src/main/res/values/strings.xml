@@ -44,5 +44,7 @@
     <string name="label_riwayat_terakhir">Riwayat Terakhir</string>
     <string name="label_lihat_semua">Lihat Semua</string>
     <string name="status_aman">AMAN</string>
+    <string name="status_pendinginan">SEDANG PROSES PENDINGINAN</string>
+    <string name="status_panas">PANAS</string>
     <string name="label_status_pendinginan">STATUS PENDINGINAN</string>
 </resources>
