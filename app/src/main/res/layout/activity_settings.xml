@@ -137,6 +137,7 @@
                         android:orientation="vertical"
                         android:padding="8dp">
                         <com.google.android.material.switchmaterial.SwitchMaterial
+                            android:id="@+id/sw_sound"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:checked="true"
@@ -144,6 +145,7 @@
                             app:thumbTint="@color/white"
                             app:trackTint="@color/tofu_orange" />
                         <com.google.android.material.switchmaterial.SwitchMaterial
+                            android:id="@+id/sw_vibrate"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:checked="true"

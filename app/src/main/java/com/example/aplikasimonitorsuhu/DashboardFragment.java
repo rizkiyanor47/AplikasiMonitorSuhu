@@ -1,6 +1,11 @@
 package com.example.aplikasimonitorsuhu;
 
+import android.app.AlertDialog;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
 import android.content.Context;
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.media.Ringtone;
 import android.media.RingtoneManager;
@@ -14,7 +19,6 @@ import android.os.Vibrator;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.Button;
 import android.widget.FrameLayout;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -22,6 +26,7 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.cardview.widget.CardView;
+import androidx.core.app.NotificationCompat;
 import androidx.fragment.app.Fragment;
 
 import com.google.android.material.bottomnavigation.BottomNavigationView;
@@ -45,7 +50,6 @@ public class DashboardFragment extends Fragment {
     private TextView tvRecentDate, tvRecentDuration, tvRecentTemp;
     private TextView tvProfileInitial;
     private CardView cardStatus;
-    private Button btnStart;
     private FrameLayout btnProfileNav;
     
     private final String DB_URL = "https://tofumonitor-default-rtdb.asia-southeast1.firebasedatabase.app/";
@@ -57,12 +61,14 @@ public class DashboardFragment extends Fragment {
     private ValueEventListener sessionListener;
     
     private boolean isProcessing = false;
-    private double currentSuhu = 0.0;
+    private double currentSuhu = -1.0; 
     private String currentFan = "MATI";
     private long startTime = 0L;
     private boolean hasBeenHotDuringSession = false;
-    private long lastAlertTime = 0;
-    private long lastSafeAlertTime = 0;
+    private boolean isAlertShowing = false;
+
+    private Ringtone activeRingtone;
+    private Vibrator activeVibrator;
 
     private final Handler timerHandler = new Handler(Looper.getMainLooper());
     private final Runnable timerRunnable = new Runnable() {
@@ -88,7 +94,6 @@ public class DashboardFragment extends Fragment {
         tvRecentDate = view.findViewById(R.id.tv_recent_date);
         tvRecentDuration = view.findViewById(R.id.tv_recent_history_detail);
         tvRecentTemp = view.findViewById(R.id.tv_recent_temp_val);
-        btnStart = view.findViewById(R.id.btn_start_process);
         tvProfileInitial = view.findViewById(R.id.tv_profile_initial);
         btnProfileNav = view.findViewById(R.id.btn_profile_nav);
 
@@ -106,8 +111,6 @@ public class DashboardFragment extends Fragment {
         startSessionMonitoring();
         fetchHistoryData();
 
-        btnStart.setOnClickListener(v -> toggleProcessing());
-
         btnProfileNav.setOnClickListener(v -> {
             if (getActivity() != null) {
                 BottomNavigationView bottomNav = getActivity().findViewById(R.id.bottom_nav);
@@ -119,7 +122,7 @@ public class DashboardFragment extends Fragment {
     }
 
     private void updateTimerUI() {
-        if (startTime <= 0 || tvTimer == null) return;
+        if (startTime <= 0 || tvTimer == null || !isAdded()) return;
         long diff = System.currentTimeMillis() - startTime;
         if (diff < 0) diff = 0;
         int totalSecs = (int) (diff / 1000);
@@ -128,32 +131,23 @@ public class DashboardFragment extends Fragment {
         tvTimer.setText(String.format(Locale.getDefault(), "%02d:%02d", mins, secs));
     }
 
-    private void toggleProcessing() {
-        if (!isProcessing) {
-            startTime = System.currentTimeMillis();
-            isProcessing = true;
-            hasBeenHotDuringSession = (currentSuhu >= 30);
-            lastSafeAlertTime = 0; 
-            
-            tvTimer.setText("00:00");
-            btnStart.setText("BERHENTI");
-            timerHandler.removeCallbacks(timerRunnable);
-            timerHandler.post(timerRunnable);
+    private void startSession(boolean hot) {
+        startTime = System.currentTimeMillis();
+        isProcessing = true;
+        hasBeenHotDuringSession = hot;
+        
+        tvTimer.setText("00:00");
+        timerHandler.removeCallbacks(timerRunnable);
+        timerHandler.post(timerRunnable);
 
-            Map<String, Object> updates = new HashMap<>();
-            updates.put("is_processing", true);
-            updates.put("start_time", startTime);
-            updates.put("has_been_hot", hasBeenHotDuringSession);
-            dbSession.updateChildren(updates);
-            
-            updateUIBySuhu(currentSuhu);
-            Toast.makeText(getContext(), "Pemantauan Dimulai...", Toast.LENGTH_SHORT).show();
-        } else {
-            saveHistoryAndStop("Manual");
-        }
+        Map<String, Object> updates = new HashMap<>();
+        updates.put("is_processing", true);
+        updates.put("start_time", startTime);
+        updates.put("has_been_hot", hasBeenHotDuringSession);
+        dbSession.updateChildren(updates);
     }
 
-    private void saveHistoryAndStop(String method) {
+    private void saveHistoryAndStop() {
         if (!isProcessing) return;
         long finalDiff = System.currentTimeMillis() - startTime;
         int totalSecs = Math.max(0, (int) (finalDiff / 1000));
@@ -177,7 +171,6 @@ public class DashboardFragment extends Fragment {
         }
         
         tvTimer.setText(durasiFinal);
-        btnStart.setText("MULAI PROSES PENDINGINAN");
         startTime = 0;
         hasBeenHotDuringSession = false;
     }
@@ -187,13 +180,6 @@ public class DashboardFragment extends Fragment {
             @Override
             public void onDataChange(@NonNull DataSnapshot snapshot) {
                 if (!isAdded()) return;
-
-                if (!snapshot.exists()) {
-                    isProcessing = false;
-                    startTime = 0;
-                    if (btnStart != null) btnStart.setText("MULAI PROSES PENDINGINAN");
-                    return;
-                }
 
                 Boolean processing = snapshot.child("is_processing").getValue(Boolean.class);
                 Long st = snapshot.child("start_time").getValue(Long.class);
@@ -207,16 +193,14 @@ public class DashboardFragment extends Fragment {
                         timerHandler.removeCallbacks(timerRunnable);
                         timerHandler.post(timerRunnable);
                     }
-                    if (btnStart != null) btnStart.setText("BERHENTI");
                     if (beenHot != null) hasBeenHotDuringSession = beenHot;
-                    updateUIBySuhu(currentSuhu);
                 } else {
                     isProcessing = false;
                     startTime = 0;
                     hasBeenHotDuringSession = false;
                     timerHandler.removeCallbacks(timerRunnable);
-                    if (btnStart != null) btnStart.setText("MULAI PROSES PENDINGINAN");
                 }
+                if (currentSuhu != -1.0) updateUIBySuhu(currentSuhu);
             }
             @Override
             public void onCancelled(@NonNull DatabaseError error) {}
@@ -233,6 +217,14 @@ public class DashboardFragment extends Fragment {
                 Object fanVal = snapshot.child("fan").getValue();
                 if (fanVal != null) {
                     currentFan = fanVal.toString();
+                    if (tvFanStatus != null) {
+                        tvFanStatus.setText(currentFan.toUpperCase());
+                        if ("AKTIF".equalsIgnoreCase(currentFan) || "HIDUP".equalsIgnoreCase(currentFan)) {
+                            tvFanStatus.setTextColor(getResources().getColor(R.color.status_danger));
+                        } else {
+                            tvFanStatus.setTextColor(getResources().getColor(R.color.tofu_brown));
+                        }
+                    }
                 }
 
                 Object suhuObj = snapshot.child("suhu").getValue();
@@ -250,123 +242,126 @@ public class DashboardFragment extends Fragment {
     }
 
     private void updateUIBySuhu(double suhu) {
-        if (!isAdded()) return;
+        if (!isAdded() || suhu == -1.0) return;
 
-        // 1. Sinkronisasi Tampilan Status Kipas (ESP32 mengirim "AKTIF" atau "MATI")
-        if (tvFanStatus != null) {
-            tvFanStatus.setText(currentFan.toUpperCase());
-            if ("AKTIF".equalsIgnoreCase(currentFan) || "HIDUP".equalsIgnoreCase(currentFan)) {
-                tvFanStatus.setTextColor(getResources().getColor(R.color.status_danger));
-            } else {
-                tvFanStatus.setTextColor(getResources().getColor(R.color.tofu_brown));
-            }
-        }
-
-        // 2. Logika Status, Warna, dan Alarm
         if (suhu > 35) {
-            // STATUS PANAS (MERAH)
             tvStatus.setText(String.format(Locale.getDefault(), "PANAS! (%.1f°C)", suhu));
             cardStatus.setCardBackgroundColor(getResources().getColor(R.color.status_danger));
             
-            triggerAlert(true); // Peringatan Panas
-            
             if (!isProcessing) {
-                autoStartSession(true);
+                startSession(true);
             } else if (!hasBeenHotDuringSession) {
                 hasBeenHotDuringSession = true;
                 dbSession.child("has_been_hot").setValue(true);
             }
-
         } else if (suhu >= 30) {
-            // STATUS PENDINGINAN (KUNING)
             tvStatus.setText(String.format(Locale.getDefault(), "PROSES PENDINGINAN... (%.1f°C)", suhu));
             cardStatus.setCardBackgroundColor(getResources().getColor(R.color.status_warning));
             
-            if (isProcessing) {
-                triggerAlert(true); 
-            } else {
-                autoStartSession(false);
+            if (!isProcessing) {
+                startSession(true); 
+            } else if (!hasBeenHotDuringSession) {
+                hasBeenHotDuringSession = true;
+                dbSession.child("has_been_hot").setValue(true);
             }
-
         } else {
-            // STATUS AMAN (< 30) (HIJAU)
+            // STATUS AMAN (< 30)
             if (isProcessing && hasBeenHotDuringSession) {
                 tvStatus.setText(String.format(Locale.getDefault(), "SIAP KEMAS! (%.1f°C)", suhu));
                 cardStatus.setCardBackgroundColor(getResources().getColor(R.color.status_safe));
                 
-                triggerAlert(false); // Alert Aman
-                saveHistoryAndStop("Otomatis");
+                if (!isAlertShowing) {
+                    triggerSafeAlert(); 
+                }
             } else {
                 tvStatus.setText(String.format(Locale.getDefault(), "AMAN (%.1f°C)", suhu));
                 cardStatus.setCardBackgroundColor(getResources().getColor(R.color.status_safe));
-                
-                if (!isProcessing) {
-                    tvTimer.setText("00:00");
-                }
+                if (!isProcessing) tvTimer.setText("00:00");
             }
         }
     }
 
-    private void autoStartSession(boolean hot) {
-        startTime = System.currentTimeMillis();
-        isProcessing = true;
-        hasBeenHotDuringSession = hot;
-
-        Map<String, Object> updates = new HashMap<>();
-        updates.put("is_processing", true);
-        updates.put("start_time", startTime);
-        updates.put("has_been_hot", hot);
-        dbSession.updateChildren(updates);
-
-        timerHandler.removeCallbacks(timerRunnable);
-        timerHandler.post(timerRunnable);
-        if (btnStart != null) btnStart.setText("BERHENTI");
-    }
-
-    private void triggerAlert(boolean isDanger) {
-        if (!isAdded()) return;
+    private void triggerSafeAlert() {
+        if (!isAdded() || isAlertShowing) return;
         Context context = getContext();
         if (context == null) return;
         
-        long now = System.currentTimeMillis();
-        if (isDanger) {
-            if (now - lastAlertTime < 10000) return;
-            lastAlertTime = now;
-        } else {
-            if (now - lastSafeAlertTime < 15000) return;
-            lastSafeAlertTime = now;
-        }
+        isAlertShowing = true;
         
         SharedPreferences sp = context.getSharedPreferences("app_settings", Context.MODE_PRIVATE);
         boolean useSound = sp.getBoolean("use_sound", true);
         boolean useVibrate = sp.getBoolean("use_vibrate", true);
 
+        // Getaran
         if (useVibrate) {
-            Vibrator v = (Vibrator) context.getSystemService(Context.VIBRATOR_SERVICE);
-            if (v != null) {
+            activeVibrator = (Vibrator) context.getSystemService(Context.VIBRATOR_SERVICE);
+            if (activeVibrator != null) {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    v.vibrate(VibrationEffect.createWaveform(new long[]{0, 600, 200, 600}, -1));
+                    activeVibrator.vibrate(VibrationEffect.createWaveform(new long[]{0, 500, 200, 500, 200, 500}, 0)); // 0 for repeat
                 } else {
-                    v.vibrate(new long[]{0, 600, 200, 600}, -1);
+                    activeVibrator.vibrate(new long[]{0, 500, 200, 500, 200, 500}, 0);
                 }
             }
         }
 
+        // Suara
         if (useSound) {
             try {
-                Uri soundUri = RingtoneManager.getDefaultUri(isDanger ? RingtoneManager.TYPE_NOTIFICATION : RingtoneManager.TYPE_ALARM);
+                Uri soundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM);
                 if (soundUri == null) soundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE);
-                Ringtone r = RingtoneManager.getRingtone(context, soundUri);
-                if (r != null) r.play();
+                activeRingtone = RingtoneManager.getRingtone(context, soundUri);
+                if (activeRingtone != null) {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                        activeRingtone.setLooping(true);
+                    }
+                    activeRingtone.play();
+                }
             } catch (Exception ignored) {}
         }
-        
-        Toast.makeText(context, isDanger ? "PERINGATAN: SUHU PANAS!" : "SUHU AMAN: SIAP DIKEMAS!", Toast.LENGTH_LONG).show();
+
+        // Notifikasi Sistem
+        NotificationManager notificationManager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
+        String channelId = "tofu_safe_alert";
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            NotificationChannel channel = new NotificationChannel(channelId, "Tofu Safe Alert", NotificationManager.IMPORTANCE_HIGH);
+            if (notificationManager != null) notificationManager.createNotificationChannel(channel);
+        }
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(context, channelId)
+                .setSmallIcon(R.drawable.suhutahu)
+                .setContentTitle("Suhu Aman - Siap Kemas!")
+                .setContentText("Suhu tahu saat ini " + currentSuhu + "°C.")
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setAutoCancel(true);
+        if (notificationManager != null) notificationManager.notify(101, builder.build());
+
+        // Popup Dialog
+        new AlertDialog.Builder(context)
+                .setTitle("Suhu Aman")
+                .setMessage("Tahu sudah dingin (" + currentSuhu + "°C). Siap untuk dikemas!")
+                .setCancelable(false)
+                .setPositiveButton("OK", (dialog, which) -> {
+                    stopAlerts();
+                    saveHistoryAndStop();
+                    isAlertShowing = false;
+                })
+                .show();
+    }
+
+    private void stopAlerts() {
+        if (activeRingtone != null && activeRingtone.isPlaying()) {
+            activeRingtone.stop();
+            activeRingtone = null;
+        }
+        if (activeVibrator != null) {
+            activeVibrator.cancel();
+            activeVibrator = null;
+        }
     }
 
     @Override
     public void onDestroyView() {
         super.onDestroyView();
+        stopAlerts();
         if (dbMonitoring != null && monitoringListener != null) dbMonitoring.removeEventListener(monitoringListener);
         if (dbSession != null && sessionListener != null) dbSession.removeEventListener(sessionListener);
         timerHandler.removeCallbacks(timerRunnable);
