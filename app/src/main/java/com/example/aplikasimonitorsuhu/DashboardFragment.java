@@ -66,6 +66,7 @@ public class DashboardFragment extends Fragment {
     private long startTime = 0L;
     private boolean hasBeenHotDuringSession = false;
     private boolean isAlertShowing = false;
+    private boolean isSessionLoaded = false;
 
     private Ringtone activeRingtone;
     private Vibrator activeVibrator;
@@ -200,6 +201,7 @@ public class DashboardFragment extends Fragment {
                     hasBeenHotDuringSession = false;
                     timerHandler.removeCallbacks(timerRunnable);
                 }
+                isSessionLoaded = true;
                 if (currentSuhu != -1.0) updateUIBySuhu(currentSuhu);
             }
             @Override
@@ -231,7 +233,9 @@ public class DashboardFragment extends Fragment {
                 if (suhuObj != null) {
                     try {
                         currentSuhu = Double.parseDouble(suhuObj.toString());
-                        updateUIBySuhu(currentSuhu);
+                        if (isSessionLoaded) {
+                            updateUIBySuhu(currentSuhu);
+                        }
                     } catch (Exception ignored) {}
                 }
             }
@@ -244,7 +248,14 @@ public class DashboardFragment extends Fragment {
     private void updateUIBySuhu(double suhu) {
         if (!isAdded() || suhu == -1.0) return;
 
-        if (suhu > 35) {
+        Context context = getContext();
+        if (context == null) return;
+        
+        SharedPreferences sp = context.getSharedPreferences("app_settings", Context.MODE_PRIVATE);
+        float batasPanas = sp.getFloat("batas_panas", 35.0f);
+        float batasAman = sp.getFloat("batas_aman", 30.0f);
+
+        if (suhu > batasPanas) {
             tvStatus.setText(String.format(Locale.getDefault(), "PANAS! (%.1f°C)", suhu));
             cardStatus.setCardBackgroundColor(getResources().getColor(R.color.status_danger));
             
@@ -254,7 +265,7 @@ public class DashboardFragment extends Fragment {
                 hasBeenHotDuringSession = true;
                 dbSession.child("has_been_hot").setValue(true);
             }
-        } else if (suhu >= 30) {
+        } else if (suhu >= batasAman) {
             tvStatus.setText(String.format(Locale.getDefault(), "PROSES PENDINGINAN... (%.1f°C)", suhu));
             cardStatus.setCardBackgroundColor(getResources().getColor(R.color.status_warning));
             

@@ -29,6 +29,13 @@ public class MainActivity extends AppCompatActivity {
     private String localSessionId = "";
     private boolean isJustLoggedIn = false;
 
+    private DatabaseReference monitoringRef;
+    private ValueEventListener monitoringListener;
+    private long lastSeenTime = 0;
+    private boolean isEspConnected = true; 
+    private android.os.Handler connHandler = new android.os.Handler(android.os.Looper.getMainLooper());
+    private Runnable connRunnable;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -57,6 +64,10 @@ public class MainActivity extends AppCompatActivity {
         
         // 4. Mulai Pengawasan Sesi
         setupSessionSecurity(user.getUid());
+
+        // 5. Mulai Pengawasan Koneksi ESP32
+        monitoringRef = FirebaseDatabase.getInstance("https://tofumonitor-default-rtdb.asia-southeast1.firebasedatabase.app/").getReference("monitoring");
+        setupConnectionMonitoring();
 
         BottomNavigationView bottomNav = findViewById(R.id.bottom_nav);
         if (savedInstanceState == null) {
@@ -128,6 +139,55 @@ public class MainActivity extends AppCompatActivity {
         sessionRef.addValueEventListener(sessionListener);
     }
 
+    private void setupConnectionMonitoring() {
+        monitoringListener = new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot snapshot) {
+                if (snapshot.hasChild("last_seen")) {
+                    lastSeenTime = snapshot.child("last_seen").getValue(Long.class);
+                }
+            }
+            @Override
+            public void onCancelled(@NonNull DatabaseError error) {}
+        };
+        monitoringRef.addValueEventListener(monitoringListener);
+
+        connRunnable = new Runnable() {
+            @Override
+            public void run() {
+                if (lastSeenTime > 0) {
+                    boolean currentConn = (System.currentTimeMillis() - lastSeenTime < 15000);
+                    if (currentConn != isEspConnected) {
+                        isEspConnected = currentConn;
+                        if (currentConn) {
+                            showConnectionNotification("ESP32 Tersambung", "Alat termonitor kembali online.");
+                        } else {
+                            showConnectionNotification("ESP32 Terputus", "Koneksi ke alat terputus! Mohon periksa daya atau internet alat.");
+                        }
+                    }
+                }
+                connHandler.postDelayed(this, 5000);
+            }
+        };
+        connHandler.post(connRunnable);
+    }
+
+    private void showConnectionNotification(String title, String message) {
+        android.app.NotificationManager notificationManager = (android.app.NotificationManager) getSystemService(android.content.Context.NOTIFICATION_SERVICE);
+        String channelId = "esp_conn_status";
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            android.app.NotificationChannel channel = new android.app.NotificationChannel(channelId, "Status Koneksi ESP32", android.app.NotificationManager.IMPORTANCE_HIGH);
+            if (notificationManager != null) notificationManager.createNotificationChannel(channel);
+        }
+        androidx.core.app.NotificationCompat.Builder builder = new androidx.core.app.NotificationCompat.Builder(this, channelId)
+                .setSmallIcon(R.drawable.suhutahu)
+                .setContentTitle(title)
+                .setContentText(message)
+                .setPriority(androidx.core.app.NotificationCompat.PRIORITY_HIGH)
+                .setAutoCancel(true);
+        if (notificationManager != null) notificationManager.notify(102, builder.build());
+    }
+
     public void handleMultiLogin() {
         if (sessionRef != null && sessionListener != null) {
             sessionRef.removeEventListener(sessionListener);
@@ -157,6 +217,12 @@ public class MainActivity extends AppCompatActivity {
         super.onDestroy();
         if (sessionRef != null && sessionListener != null) {
             sessionRef.removeEventListener(sessionListener);
+        }
+        if (monitoringRef != null && monitoringListener != null) {
+            monitoringRef.removeEventListener(monitoringListener);
+        }
+        if (connHandler != null && connRunnable != null) {
+            connHandler.removeCallbacks(connRunnable);
         }
     }
 }

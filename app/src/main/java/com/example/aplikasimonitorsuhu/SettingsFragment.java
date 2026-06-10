@@ -40,7 +40,60 @@ public class SettingsFragment extends Fragment {
         tvConnStatus = view.findViewById(R.id.tv_conn_status);
         Button btnLogout = view.findViewById(R.id.btn_logout);
 
+        com.google.android.material.textfield.TextInputEditText etBatasPanas = view.findViewById(R.id.et_batas_panas);
+        com.google.android.material.textfield.TextInputEditText etBatasAman = view.findViewById(R.id.et_batas_aman);
+        com.google.android.material.button.MaterialButton btnSimpanSuhu = view.findViewById(R.id.btn_simpan_suhu);
+
         SharedPreferences sp = requireContext().getSharedPreferences("app_settings", Context.MODE_PRIVATE);
+        
+        // Monitoring Connection Status & Thresholds
+        dbMonitoring = FirebaseDatabase.getInstance("https://tofumonitor-default-rtdb.asia-southeast1.firebasedatabase.app/").getReference("monitoring");
+        
+        // Load Threshold Settings
+        if (etBatasPanas != null && etBatasAman != null) {
+            float savedBatasPanas = sp.getFloat("batas_panas", 35.0f);
+            float savedBatasAman = sp.getFloat("batas_aman", 30.0f);
+            etBatasPanas.setText(String.valueOf(savedBatasPanas));
+            etBatasAman.setText(String.valueOf(savedBatasAman));
+        }
+
+        if (btnSimpanSuhu != null) {
+            btnSimpanSuhu.setOnClickListener(v -> {
+                try {
+                    String strPanas = etBatasPanas.getText().toString();
+                    String strAman = etBatasAman.getText().toString();
+                    
+                    if (strPanas.isEmpty() || strAman.isEmpty()) {
+                        Toast.makeText(getContext(), "Mohon isi kedua batas suhu", Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                    
+                    float batasPanas = Float.parseFloat(strPanas);
+                    float batasAman = Float.parseFloat(strAman);
+                    
+                    if (batasAman >= batasPanas) {
+                        Toast.makeText(getContext(), "Batas Aman harus lebih kecil dari Batas Panas", Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+
+                    sp.edit()
+                        .putFloat("batas_panas", batasPanas)
+                        .putFloat("batas_aman", batasAman)
+                        .apply();
+                        
+                    if (dbMonitoring != null) {
+                        java.util.Map<String, Object> updates = new java.util.HashMap<>();
+                        updates.put("batas_panas", batasPanas);
+                        updates.put("batas_aman", batasAman);
+                        dbMonitoring.updateChildren(updates);
+                    }
+                        
+                    Toast.makeText(getContext(), "Batas Suhu berhasil disimpan ke HP & Firebase!", Toast.LENGTH_SHORT).show();
+                } catch (NumberFormatException e) {
+                    Toast.makeText(getContext(), "Angka tidak valid", Toast.LENGTH_SHORT).show();
+                }
+            });
+        }
         
         // Load Saved Settings
         if (switchSound != null) {
@@ -55,8 +108,6 @@ public class SettingsFragment extends Fragment {
                 sp.edit().putBoolean("use_vibrate", isChecked).apply());
         }
 
-        // Monitoring Connection Status
-        dbMonitoring = FirebaseDatabase.getInstance("https://tofumonitor-default-rtdb.asia-southeast1.firebasedatabase.app/").getReference("monitoring");
         checkConnection();
 
         if (btnLogout != null) {

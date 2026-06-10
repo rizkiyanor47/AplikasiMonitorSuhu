@@ -107,11 +107,21 @@
                         app:layout_constraintStart_toStartOf="parent"
                         app:layout_constraintTop_toBottomOf="@id/btn_login" />
 
-                    <com.google.android.gms.common.SignInButton
+                    <com.google.android.material.button.MaterialButton
                         android:id="@+id/btn_google_signin"
+                        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                         android:layout_width="match_parent"
                         android:layout_height="56dp"
                         android:layout_marginTop="16dp"
+                        android:text="Login dengan Google"
+                        android:textColor="@color/black"
+                        android:textStyle="bold"
+                        app:cornerRadius="28dp"
+                        app:icon="@drawable/ic_google"
+                        app:iconTint="@null"
+                        app:iconGravity="textStart"
+                        app:iconPadding="12dp"
+                        app:strokeColor="#DDDDDD"
                         app:layout_constraintTop_toBottomOf="@id/tv_or" />
 
                 </androidx.constraintlayout.widget.ConstraintLayout>
