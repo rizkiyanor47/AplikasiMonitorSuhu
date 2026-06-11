@@ -49,7 +49,9 @@ public class HistoryFragment extends Fragment {
     private ValueEventListener sessionListener;
     private String localSessionId = "";
     private Spinner spinnerFilter;
-    private final String DB_URL = "https://tofumonitor-default-rtdb.asia-southeast1.firebasedatabase.app/";
+    
+    // Perbaikan: Hapus tanda miring di akhir URL
+    private final String DB_URL = "https://tofumonitor-default-rtdb.asia-southeast1.firebasedatabase.app";
 
     @Nullable
     @Override
@@ -122,7 +124,9 @@ public class HistoryFragment extends Fragment {
                 }
             }
             @Override
-            public void onCancelled(@NonNull DatabaseError error) {}
+            public void onCancelled(@NonNull DatabaseError error) {
+                Log.e("FirebaseError", "Session Check Error: " + error.getMessage());
+            }
         };
         sessionRef.addValueEventListener(sessionListener);
     }
@@ -137,16 +141,17 @@ public class HistoryFragment extends Fragment {
         
         ArrayAdapter<String> spinnerAdapter = new ArrayAdapter<>(requireContext(), android.R.layout.simple_spinner_item, options);
         spinnerAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-        spinnerFilter.setAdapter(spinnerAdapter);
-
-        spinnerFilter.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
-            @Override
-            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
-                applyFilter(options[position]);
-            }
-            @Override
-            public void onNothingSelected(AdapterView<?> parent) {}
-        });
+        if (spinnerFilter != null) {
+            spinnerFilter.setAdapter(spinnerAdapter);
+            spinnerFilter.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+                @Override
+                public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                    applyFilter(options[position]);
+                }
+                @Override
+                public void onNothingSelected(AdapterView<?> parent) {}
+            });
+        }
     }
 
     private void getHistoryData() {
@@ -167,14 +172,22 @@ public class HistoryFragment extends Fragment {
                         }
                     }
                     Collections.reverse(fullHistoryList);
-                    if (isAdded()) applyFilter(spinnerFilter.getSelectedItem().toString());
+                    if (isAdded() && spinnerFilter != null) {
+                        applyFilter(spinnerFilter.getSelectedItem().toString());
+                    }
                 } else {
                     historyList.clear();
                     adapter.notifyDataSetChanged();
                 }
             }
             @Override
-            public void onCancelled(@NonNull DatabaseError error) {}
+            public void onCancelled(@NonNull DatabaseError error) {
+                // INI AKAN MENUNJUKKAN PENYEBAB ERROR ASLI
+                Log.e("FirebaseError", "Data History Error: " + error.getMessage());
+                if (isAdded()) {
+                    Toast.makeText(getContext(), "Database Error: " + error.getMessage(), Toast.LENGTH_SHORT).show();
+                }
+            }
         });
     }
 

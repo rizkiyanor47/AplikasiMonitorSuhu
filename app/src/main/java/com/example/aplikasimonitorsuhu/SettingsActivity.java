@@ -68,11 +68,5 @@ public class SettingsActivity extends AppCompatActivity {
             }
             return false;
         });
-
-        findViewById(R.id.btn_logout).setOnClickListener(v -> {
-            FirebaseAuth.getInstance().signOut();
-            startActivity(new Intent(this, LoginActivity.class));
-            finishAffinity();
-        });
     }
 }

@@ -190,28 +190,12 @@
                     </RelativeLayout>
                 </androidx.cardview.widget.CardView>
 
-                <!-- Logout Button -->
-                <Button
-                    android:id="@+id/btn_logout"
-                    android:layout_width="match_parent"
-                    android:layout_height="56dp"
-                    android:layout_marginTop="32dp"
-                    android:backgroundTint="@color/tofu_orange"
-                    android:drawableStart="@android:drawable/ic_lock_power_off"
-                    android:drawablePadding="8dp"
-                    android:paddingHorizontal="24dp"
-                    android:text="@string/btn_logout"
-                    android:textAllCaps="false"
-                    android:textColor="@color/white"
-                    android:textSize="16sp"
-                    app:cornerRadius="28dp" />
-
                 <!-- Footer Info -->
                 <TextView
                     android:id="@+id/tv_user_email"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="24dp"
+                    android:layout_marginTop="48dp"
                     android:gravity="center"
                     android:text="Masuk sebagai: rizki@politala.ac.id"
                     android:textColor="@color/text_secondary"

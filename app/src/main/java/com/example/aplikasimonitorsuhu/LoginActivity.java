@@ -44,8 +44,6 @@ public class LoginActivity extends AppCompatActivity {
 
     private static final String TAG = "LoginActivity";
     private static final int RC_SIGN_IN = 9001;
-    
-    // Site Key reCAPTCHA Anda
     private static final String RECAPTCHA_SITE_KEY = "6LdkmQwtAAAAAOkk8XDhnRqIhX1diJXiS_f06tQi";
 
     private TextInputLayout tilEmail, tilPassword;
@@ -56,7 +54,9 @@ public class LoginActivity extends AppCompatActivity {
     private FirebaseAuth mAuth;
     private GoogleSignInClient mGoogleSignInClient;
     private RecaptchaTasksClient recaptchaTasksClient;
-    private final String DB_URL = "https://tofumonitor-default-rtdb.asia-southeast1.firebasedatabase.app/";
+    
+    // Perbaikan: Hapus tanda miring di akhir URL agar sinkron dengan fragment lain
+    private final String DB_URL = "https://tofumonitor-default-rtdb.asia-southeast1.firebasedatabase.app";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -64,16 +64,12 @@ public class LoginActivity extends AppCompatActivity {
         
         mAuth = FirebaseAuth.getInstance();
         
-        // Cek Login Session
-        FirebaseUser currentUser = mAuth.getCurrentUser();
-        if (currentUser != null && hasValidLocalSession()) {
+        if (mAuth.getCurrentUser() != null && hasValidLocalSession()) {
             goToMainActivity(null, false);
             return;
         }
 
         setContentView(R.layout.activity_login);
-
-        // Inisialisasi reCAPTCHA saat aplikasi dibuka
         initializeRecaptcha();
 
         GoogleSignInOptions gso = new GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
@@ -100,16 +96,8 @@ public class LoginActivity extends AppCompatActivity {
 
     private void initializeRecaptcha() {
         Recaptcha.getTasksClient(getApplication(), RECAPTCHA_SITE_KEY)
-                .addOnSuccessListener(this, client -> {
-                    this.recaptchaTasksClient = client;
-                    Log.d(TAG, "reCAPTCHA Terhubung");
-                    // Memberi tahu pengguna bahwa sistem keamanan aktif
-                    Toast.makeText(this, "Keamanan reCAPTCHA Aktif", Toast.LENGTH_SHORT).show();
-                })
-                .addOnFailureListener(this, e -> {
-                    Log.e(TAG, "reCAPTCHA Gagal: " + e.getMessage());
-                    Toast.makeText(this, "reCAPTCHA Error: " + e.getMessage(), Toast.LENGTH_LONG).show();
-                });
+                .addOnSuccessListener(this, client -> this.recaptchaTasksClient = client)
+                .addOnFailureListener(this, e -> Log.e(TAG, "reCAPTCHA Error: " + e.getMessage()));
     }
 
     private void executeRecaptchaAndLogin() {
@@ -117,33 +105,14 @@ public class LoginActivity extends AppCompatActivity {
         String email = etEmail.getText().toString().trim();
         String password = etPassword.getText().toString().trim();
 
-        if (TextUtils.isEmpty(email)) {
-            tilEmail.setError("Email wajib diisi");
-            return;
-        }
-        if (TextUtils.isEmpty(password)) {
-            tilPassword.setError("Password wajib diisi");
-            return;
-        }
+        if (TextUtils.isEmpty(email)) { tilEmail.setError("Email wajib diisi"); return; }
+        if (TextUtils.isEmpty(password)) { tilPassword.setError("Password wajib diisi"); return; }
 
-        if (recaptchaTasksClient == null) {
-            // Jika belum siap, coba login langsung agar user tidak terhambat
-            performLogin();
-            return;
-        }
-
-        // Tampilkan pesan bahwa sedang diverifikasi
-        Toast.makeText(this, "Memverifikasi keamanan...", Toast.LENGTH_SHORT).show();
+        if (recaptchaTasksClient == null) { performLogin(); return; }
 
         recaptchaTasksClient.executeTask(RecaptchaAction.LOGIN)
-                .addOnSuccessListener(this, token -> {
-                    Log.d(TAG, "Verifikasi Berhasil");
-                    performLogin();
-                })
-                .addOnFailureListener(this, e -> {
-                    Log.e(TAG, "Verifikasi Gagal: " + e.getMessage());
-                    performLogin(); // Tetap lanjut jika gagal (opsi toleransi developer)
-                });
+                .addOnSuccessListener(this, token -> performLogin())
+                .addOnFailureListener(this, e -> performLogin());
     }
 
     private void performLogin() {
@@ -154,7 +123,7 @@ public class LoginActivity extends AppCompatActivity {
             if (task.isSuccessful()) {
                 checkWhitelistAndProceed(mAuth.getCurrentUser(), cbRemember.isChecked());
             } else {
-                Toast.makeText(this, "Login Gagal: Periksa Email/Password", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "Login Gagal: Akun tidak ditemukan", Toast.LENGTH_SHORT).show();
             }
         });
     }
@@ -184,14 +153,16 @@ public class LoginActivity extends AppCompatActivity {
                     updateSessionInFirebase(user.getUid(), sessionId);
                 } else {
                     mAuth.signOut();
-                    Toast.makeText(LoginActivity.this, "Akses Ditolak: Email tidak terdaftar.", Toast.LENGTH_LONG).show();
+                    Toast.makeText(LoginActivity.this, "Email tidak terdaftar di sistem.", Toast.LENGTH_LONG).show();
                 }
             }
 
             @Override
             public void onCancelled(@NonNull DatabaseError error) {
                 mAuth.signOut();
-                Toast.makeText(LoginActivity.this, "Error Database", Toast.LENGTH_SHORT).show();
+                // Menampilkan pesan error teknis jika terjadi kendala Rules/Jaringan
+                Log.e(TAG, "Whitelist Error: " + error.getMessage());
+                Toast.makeText(LoginActivity.this, "Gagal akses server: " + error.getMessage(), Toast.LENGTH_SHORT).show();
             }
         });
     }
@@ -246,7 +217,7 @@ public class LoginActivity extends AppCompatActivity {
                 GoogleSignInAccount account = task.getResult(ApiException.class);
                 if (account != null) firebaseAuthWithGoogle(account.getIdToken());
             } catch (ApiException e) {
-                Toast.makeText(this, "Login Google Gagal", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "Gagal login Google: " + e.getMessage(), Toast.LENGTH_SHORT).show();
             }
         }
     }
@@ -263,19 +234,19 @@ public class LoginActivity extends AppCompatActivity {
     private void showForgotPasswordDialog() {
         EditText resetMail = new EditText(this);
         resetMail.setHint("Email Anda");
-        AlertDialog.Builder passwordResetDialog = new AlertDialog.Builder(this);
-        passwordResetDialog.setTitle("Lupa Kata Sandi?");
-        passwordResetDialog.setMessage("Masukkan alamat email.");
-        passwordResetDialog.setView(resetMail);
-        passwordResetDialog.setPositiveButton("Kirim", (dialog, which) -> {
-            String mail = resetMail.getText().toString().trim();
-            if (!TextUtils.isEmpty(mail)) {
-                mAuth.sendPasswordResetEmail(mail).addOnSuccessListener(unused -> 
-                    Toast.makeText(this, "Cek email Anda.", Toast.LENGTH_SHORT).show()
-                );
-            }
-        });
-        passwordResetDialog.setNegativeButton("Batal", (dialog, which) -> dialog.dismiss());
-        passwordResetDialog.create().show();
+        new AlertDialog.Builder(this)
+                .setTitle("Lupa Kata Sandi?")
+                .setMessage("Masukkan alamat email untuk reset password.")
+                .setView(resetMail)
+                .setPositiveButton("Kirim", (dialog, which) -> {
+                    String mail = resetMail.getText().toString().trim();
+                    if (!TextUtils.isEmpty(mail)) {
+                        mAuth.sendPasswordResetEmail(mail).addOnSuccessListener(unused -> 
+                            Toast.makeText(this, "Cek email Anda.", Toast.LENGTH_SHORT).show()
+                        );
+                    }
+                })
+                .setNegativeButton("Batal", null)
+                .show();
     }
 }

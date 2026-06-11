@@ -1,13 +1,24 @@
 package com.example.aplikasimonitorsuhu;
 
+import android.Manifest;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
+import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.util.Log;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
+import androidx.core.app.NotificationCompat;
+import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 import androidx.security.crypto.EncryptedSharedPreferences;
 import androidx.security.crypto.MasterKey;
@@ -33,8 +44,12 @@ public class MainActivity extends AppCompatActivity {
     private ValueEventListener monitoringListener;
     private long lastSeenTime = 0;
     private boolean isEspConnected = true; 
-    private android.os.Handler connHandler = new android.os.Handler(android.os.Looper.getMainLooper());
+    private boolean firstCheckDone = false;
+    private final Handler connHandler = new Handler(Looper.getMainLooper());
     private Runnable connRunnable;
+
+    // URL Database yang seragam (Tanpa tanda miring di akhir)
+    private final String DB_URL = "https://tofumonitor-default-rtdb.asia-southeast1.firebasedatabase.app";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -49,24 +64,19 @@ public class MainActivity extends AppCompatActivity {
         }
 
         setContentView(R.layout.activity_main);
-        
-        // 1. Cek apakah ini login baru
-        isJustLoggedIn = getIntent().getBooleanExtra("IS_NEW_LOGIN", false);
+        checkNotificationPermission();
 
-        // 2. Muat Sesi Lokal
+        isJustLoggedIn = getIntent().getBooleanExtra("IS_NEW_LOGIN", false);
         loadLocalSession();
         
-        // 3. Prioritas: Ambil ID Sesi dari Intent jika ada
         String intentSessionId = getIntent().getStringExtra("EXTRA_SESSION_ID");
         if (intentSessionId != null && !intentSessionId.isEmpty()) {
             localSessionId = intentSessionId;
         }
         
-        // 4. Mulai Pengawasan Sesi
         setupSessionSecurity(user.getUid());
 
-        // 5. Mulai Pengawasan Koneksi ESP32
-        monitoringRef = FirebaseDatabase.getInstance("https://tofumonitor-default-rtdb.asia-southeast1.firebasedatabase.app/").getReference("monitoring");
+        monitoringRef = FirebaseDatabase.getInstance(DB_URL).getReference("monitoring");
         setupConnectionMonitoring();
 
         BottomNavigationView bottomNav = findViewById(R.id.bottom_nav);
@@ -93,6 +103,14 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
+    private void checkNotificationPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.POST_NOTIFICATIONS}, 101);
+            }
+        }
+    }
+
     private void loadLocalSession() {
         try {
             MasterKey masterKey = new MasterKey.Builder(this).setKeyScheme(MasterKey.KeyScheme.AES256_GCM).build();
@@ -106,7 +124,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void setupSessionSecurity(String userId) {
-        sessionRef = FirebaseDatabase.getInstance("https://tofumonitor-default-rtdb.asia-southeast1.firebasedatabase.app/")
+        sessionRef = FirebaseDatabase.getInstance(DB_URL)
                 .getReference("users")
                 .child(userId)
                 .child("current_session_id");
@@ -115,24 +133,14 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onDataChange(@NonNull DataSnapshot snapshot) {
                 if (!snapshot.exists()) return;
-                
                 String remoteSessionId = snapshot.getValue(String.class);
                 if (remoteSessionId == null) return;
-
-                // Logika Toleransi:
-                // Jika Sesi di Firebase sudah sama dengan di HP, matikan flag 'Baru Login'
                 if (remoteSessionId.equals(localSessionId)) {
                     isJustLoggedIn = false;
-                    Log.d("SessionDebug", "Sesi tersinkronisasi.");
                 } else if (!isJustLoggedIn && !localSessionId.isEmpty()) {
-                    // Hanya logout jika BUKAN sedang dalam masa toleransi login baru
-                    Log.w("SessionDebug", "Sesi tidak cocok! Remote: " + remoteSessionId + " | Local: " + localSessionId);
-                    if (!isFinishing()) {
-                        handleMultiLogin();
-                    }
+                    if (!isFinishing()) handleMultiLogin();
                 }
             }
-
             @Override
             public void onCancelled(@NonNull DatabaseError error) { }
         };
@@ -157,11 +165,17 @@ public class MainActivity extends AppCompatActivity {
             public void run() {
                 if (lastSeenTime > 0) {
                     boolean currentConn = (System.currentTimeMillis() - lastSeenTime < 15000);
-                    if (currentConn != isEspConnected) {
+                    if (!firstCheckDone) {
+                        isEspConnected = currentConn;
+                        firstCheckDone = true;
+                        if (!currentConn) showConnectionNotification("Alat Terputus", "Koneksi ke alat tidak terdeteksi.");
+                    } else if (currentConn != isEspConnected) {
                         isEspConnected = currentConn;
                         if (currentConn) {
+                            Toast.makeText(MainActivity.this, "Alat Terhubung Kembali", Toast.LENGTH_SHORT).show();
                             showConnectionNotification("ESP32 Tersambung", "Alat termonitor kembali online.");
                         } else {
+                            Toast.makeText(MainActivity.this, "Koneksi Alat Terputus!", Toast.LENGTH_LONG).show();
                             showConnectionNotification("ESP32 Terputus", "Koneksi ke alat terputus! Mohon periksa daya atau internet alat.");
                         }
                     }
@@ -173,25 +187,23 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void showConnectionNotification(String title, String message) {
-        android.app.NotificationManager notificationManager = (android.app.NotificationManager) getSystemService(android.content.Context.NOTIFICATION_SERVICE);
+        NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
         String channelId = "esp_conn_status";
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-            android.app.NotificationChannel channel = new android.app.NotificationChannel(channelId, "Status Koneksi ESP32", android.app.NotificationManager.IMPORTANCE_HIGH);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            NotificationChannel channel = new NotificationChannel(channelId, "Status Koneksi ESP32", NotificationManager.IMPORTANCE_HIGH);
             if (notificationManager != null) notificationManager.createNotificationChannel(channel);
         }
-        androidx.core.app.NotificationCompat.Builder builder = new androidx.core.app.NotificationCompat.Builder(this, channelId)
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(this, channelId)
                 .setSmallIcon(R.drawable.suhutahu)
                 .setContentTitle(title)
                 .setContentText(message)
-                .setPriority(androidx.core.app.NotificationCompat.PRIORITY_HIGH)
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
                 .setAutoCancel(true);
         if (notificationManager != null) notificationManager.notify(102, builder.build());
     }
 
     public void handleMultiLogin() {
-        if (sessionRef != null && sessionListener != null) {
-            sessionRef.removeEventListener(sessionListener);
-        }
+        if (sessionRef != null && sessionListener != null) sessionRef.removeEventListener(sessionListener);
         mAuth.signOut();
         try {
             MasterKey masterKey = new MasterKey.Builder(this).setKeyScheme(MasterKey.KeyScheme.AES256_GCM).build();
@@ -200,7 +212,6 @@ public class MainActivity extends AppCompatActivity {
                     EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM);
             sp.edit().clear().commit();
         } catch (Exception ignored) {}
-
         Toast.makeText(this, "Akun Anda digunakan di perangkat lain.", Toast.LENGTH_LONG).show();
         redirectToLogin();
     }
@@ -215,14 +226,8 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        if (sessionRef != null && sessionListener != null) {
-            sessionRef.removeEventListener(sessionListener);
-        }
-        if (monitoringRef != null && monitoringListener != null) {
-            monitoringRef.removeEventListener(monitoringListener);
-        }
-        if (connHandler != null && connRunnable != null) {
-            connHandler.removeCallbacks(connRunnable);
-        }
+        if (sessionRef != null && sessionListener != null) sessionRef.removeEventListener(sessionListener);
+        if (monitoringRef != null && monitoringListener != null) monitoringRef.removeEventListener(monitoringListener);
+        if (connHandler != null && connRunnable != null) connHandler.removeCallbacks(connRunnable);
     }
 }
