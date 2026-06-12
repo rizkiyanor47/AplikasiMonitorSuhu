@@ -19,7 +19,7 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -50,8 +50,8 @@ dependencies {
 
     implementation("androidx.cardview:cardview:1.0.0")
     
-    // reCAPTCHA Enterprise
-    implementation(libs.recaptcha)
+    // Firebase App Check (Play Integrity)
+    implementation("com.google.firebase:firebase-appcheck-playintegrity")
     
     testImplementation(libs.junit)
     androidTestImplementation(libs.ext.junit)

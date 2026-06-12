@@ -14,6 +14,7 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.VibrationEffect;
 import android.os.Vibrator;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -49,7 +50,7 @@ public class DashboardFragment extends Fragment {
     private CardView cardStatus;
     private FrameLayout btnProfileNav;
     
-    private final String DB_URL = "https://tofumonitor-default-rtdb.asia-southeast1.firebasedatabase.app/";
+    private final String DB_URL = "https://tofumonitor-default-rtdb.asia-southeast1.firebasedatabase.app";
     private DatabaseReference dbMonitoring;
     private DatabaseReference dbSession;
     private DatabaseReference dbUserHistory;
@@ -70,6 +71,8 @@ public class DashboardFragment extends Fragment {
 
     private Ringtone activeRingtone;
     private Vibrator activeVibrator;
+
+    private static final String CHANNEL_ID = "tofu_alert_channel";
 
     private final Handler timerHandler = new Handler(Looper.getMainLooper());
     private final Runnable timerRunnable = new Runnable() {
@@ -98,7 +101,8 @@ public class DashboardFragment extends Fragment {
         tvProfileInitial = view.findViewById(R.id.tv_profile_initial);
         btnProfileNav = view.findViewById(R.id.btn_profile_nav);
 
-        // Navigasi ke Riwayat
+        createNotificationChannel();
+
         TextView btnSeeAll = view.findViewById(R.id.btn_see_all);
         CardView btnToHistory = view.findViewById(R.id.btn_to_history);
 
@@ -136,6 +140,31 @@ public class DashboardFragment extends Fragment {
         });
 
         return view;
+    }
+
+    private void createNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            CharSequence name = "Alert Suhu Tahu";
+            String description = "Notifikasi saat suhu tahu sudah aman";
+            int importance = NotificationManager.IMPORTANCE_HIGH;
+            NotificationChannel channel = new NotificationChannel(CHANNEL_ID, name, importance);
+            channel.setDescription(description);
+            NotificationManager notificationManager = getContext().getSystemService(NotificationManager.class);
+            if (notificationManager != null) notificationManager.createNotificationChannel(channel);
+        }
+    }
+
+    private void sendSystemNotification() {
+        if (getContext() == null) return;
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(getContext(), CHANNEL_ID)
+                .setSmallIcon(R.drawable.suhutahu)
+                .setContentTitle("Suhu Aman - Siap Kemas!")
+                .setContentText("Suhu tahu saat ini " + currentSuhu + "°C. Silakan lakukan pengemasan.")
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setAutoCancel(true);
+
+        NotificationManager notificationManager = (NotificationManager) getContext().getSystemService(Context.NOTIFICATION_SERVICE);
+        if (notificationManager != null) notificationManager.notify(1, builder.build());
     }
 
     private void updateTimerUI() {
@@ -226,20 +255,27 @@ public class DashboardFragment extends Fragment {
             public void onDataChange(@NonNull DataSnapshot snapshot) {
                 if (!snapshot.exists() || !isAdded()) return;
 
-                if (snapshot.hasChild("batas_panas")) {
-                    firebaseBatasPanas = snapshot.child("batas_panas").getValue(Float.class);
-                }
-                if (snapshot.hasChild("batas_aman")) {
-                    firebaseBatasAman = snapshot.child("batas_aman").getValue(Float.class);
+                try {
+                    if (snapshot.hasChild("batas_panas")) {
+                        Object val = snapshot.child("batas_panas").getValue();
+                        if (val != null) firebaseBatasPanas = Float.parseFloat(val.toString());
+                    }
+                    if (snapshot.hasChild("batas_aman")) {
+                        Object val = snapshot.child("batas_aman").getValue();
+                        if (val != null) firebaseBatasAman = Float.parseFloat(val.toString());
+                    }
+                } catch (Exception e) {
+                    Log.e("Dashboard", "Error parsing thresholds: " + e.getMessage());
                 }
 
                 Object fanVal = snapshot.child("fan").getValue();
                 if (fanVal != null) {
                     String newFanStatus = fanVal.toString().toUpperCase();
-                    if (isProcessing && hasBeenHotDuringSession && ("MATI".equals(newFanStatus) || "OFF".equals(newFanStatus)) 
+                    if (isProcessing && ("MATI".equals(newFanStatus) || "OFF".equals(newFanStatus)) 
                         && !("MATI".equals(currentFan) || "OFF".equals(currentFan))) {
+                        boolean shouldAlert = hasBeenHotDuringSession;
                         saveHistoryAndStop();
-                        if (!isAlertShowing) triggerSafeAlert();
+                        if (shouldAlert && !isAlertShowing) triggerSafeAlert();
                     }
                     currentFan = newFanStatus;
                     if (tvFanStatus != null) {
@@ -265,25 +301,29 @@ public class DashboardFragment extends Fragment {
     private void updateUIBySuhu(double suhu) {
         if (!isAdded() || suhu == -1.0) return;
 
-        if (suhu > firebaseBatasPanas) {
-            tvStatus.setText(String.format(Locale.getDefault(), "PANAS! (%.1f°C)", suhu));
+        if (suhu >= firebaseBatasPanas) {
+            tvStatus.setText(String.format(Locale.getDefault(), "PANAS! (%.1f\u00b0C)", suhu));
             cardStatus.setCardBackgroundColor(getResources().getColor(R.color.status_danger));
-            if (!isProcessing) startSession(true);
-            else if (!hasBeenHotDuringSession) {
+            if (!isProcessing) {
+                startSession(true);
+            } else if (!hasBeenHotDuringSession) {
                 hasBeenHotDuringSession = true;
                 dbSession.child("has_been_hot").setValue(true);
             }
         } else if (suhu >= firebaseBatasAman) {
-            tvStatus.setText(String.format(Locale.getDefault(), "PENDINAN... (%.1f°C)", suhu));
+            tvStatus.setText(String.format(Locale.getDefault(), "PENDINGINAN... (%.1f\u00b0C)", suhu));
             cardStatus.setCardBackgroundColor(getResources().getColor(R.color.status_warning));
-            if (!isProcessing) startSession(true);
+            if (!isProcessing) {
+                startSession(false);
+            }
         } else {
-            tvStatus.setText(String.format(Locale.getDefault(), "AMAN (%.1f°C)", suhu));
+            tvStatus.setText(String.format(Locale.getDefault(), "AMAN (%.1f\u00b0C)", suhu));
             cardStatus.setCardBackgroundColor(getResources().getColor(R.color.status_safe));
-            if (isProcessing && hasBeenHotDuringSession) {
+            if (isProcessing) {
+                boolean shouldAlert = hasBeenHotDuringSession;
                 saveHistoryAndStop();
-                if (!isAlertShowing) triggerSafeAlert();
-            } else if (!isProcessing) {
+                if (shouldAlert && !isAlertShowing) triggerSafeAlert();
+            } else {
                 tvTimer.setText("00:00");
             }
         }
@@ -295,11 +335,11 @@ public class DashboardFragment extends Fragment {
         if (context == null) return;
         isAlertShowing = true;
         
+        sendSystemNotification();
+
         SharedPreferences sp = context.getSharedPreferences("app_settings", Context.MODE_PRIVATE);
-        if (sp.getBoolean("use_vibrate", true)) {
-            activeVibrator = (Vibrator) context.getSystemService(Context.VIBRATOR_SERVICE);
-            if (activeVibrator != null) activeVibrator.vibrate(VibrationEffect.createWaveform(new long[]{0, 500, 200, 500}, 0));
-        }
+        
+        // Integrasi Pengaturan Suara
         if (sp.getBoolean("use_sound", true)) {
             try {
                 Uri uri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM);
@@ -311,9 +351,19 @@ public class DashboardFragment extends Fragment {
             } catch (Exception ignored) {}
         }
 
+        // Integrasi Pengaturan Getar
+        if (sp.getBoolean("use_vibrate", true)) {
+            activeVibrator = (Vibrator) context.getSystemService(Context.VIBRATOR_SERVICE);
+            if (activeVibrator != null) {
+                long[] pattern = {0, 1000, 500, 1000};
+                activeVibrator.vibrate(VibrationEffect.createWaveform(pattern, 0));
+            }
+        }
+
+        // Dialog Konfirmasi "Siap Kemas"
         new AlertDialog.Builder(context)
-                .setTitle("Suhu Aman")
-                .setMessage("Tahu sudah dingin (" + currentSuhu + "°C). Riwayat otomatis tersimpan.")
+                .setTitle("Siap Kemas!")
+                .setMessage("Suhu sudah aman (" + currentSuhu + "°C). Tahu sudah bisa dikemas.")
                 .setCancelable(false)
                 .setPositiveButton("OK", (dialog, which) -> {
                     stopAlerts();
@@ -323,7 +373,7 @@ public class DashboardFragment extends Fragment {
     }
 
     private void stopAlerts() {
-        if (activeRingtone != null) activeRingtone.stop();
+        if (activeRingtone != null && activeRingtone.isPlaying()) activeRingtone.stop();
         if (activeVibrator != null) activeVibrator.cancel();
     }
 

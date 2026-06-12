@@ -34,6 +34,11 @@ import com.google.firebase.database.ValueEventListener;
 
 public class MainActivity extends AppCompatActivity {
 
+    // Interface agar Fragment bisa menerima update status koneksi ESP32
+    public interface EspConnectionListener {
+        void onEspConnectionChanged(boolean isConnected);
+    }
+
     private FirebaseAuth mAuth;
     private DatabaseReference sessionRef;
     private ValueEventListener sessionListener;
@@ -45,15 +50,20 @@ public class MainActivity extends AppCompatActivity {
     private long lastSeenTime = 0;
     private boolean isEspConnected = true; 
     private boolean firstCheckDone = false;
+    private long serverTimeOffset = 0;
+    
     private final Handler connHandler = new Handler(Looper.getMainLooper());
     private Runnable connRunnable;
 
-    // URL Database yang seragam (Tanpa tanda miring di akhir)
     private final String DB_URL = "https://tofumonitor-default-rtdb.asia-southeast1.firebasedatabase.app";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        
+        getWindow().setFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE, android.view.WindowManager.LayoutParams.FLAG_SECURE);
+
+        setContentView(R.layout.activity_main);
         
         mAuth = FirebaseAuth.getInstance();
         FirebaseUser user = mAuth.getCurrentUser();
@@ -75,6 +85,17 @@ public class MainActivity extends AppCompatActivity {
         }
         
         setupSessionSecurity(user.getUid());
+
+        // Sinkronisasi Waktu Server Firebase untuk akurasi status koneksi
+        DatabaseReference offsetRef = FirebaseDatabase.getInstance(DB_URL).getReference(".info/serverTimeOffset");
+        offsetRef.addValueEventListener(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot snapshot) {
+                Long offset = snapshot.getValue(Long.class);
+                if (offset != null) serverTimeOffset = offset;
+            }
+            @Override public void onCancelled(@NonNull DatabaseError error) {}
+        });
 
         monitoringRef = FirebaseDatabase.getInstance(DB_URL).getReference("monitoring");
         setupConnectionMonitoring();
@@ -151,8 +172,9 @@ public class MainActivity extends AppCompatActivity {
         monitoringListener = new ValueEventListener() {
             @Override
             public void onDataChange(@NonNull DataSnapshot snapshot) {
-                if (snapshot.hasChild("last_seen")) {
-                    lastSeenTime = snapshot.child("last_seen").getValue(Long.class);
+                Object obj = snapshot.child("last_seen").getValue();
+                if (obj instanceof Number) {
+                    lastSeenTime = ((Number) obj).longValue();
                 }
             }
             @Override
@@ -164,42 +186,45 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void run() {
                 if (lastSeenTime > 0) {
-                    boolean currentConn = (System.currentTimeMillis() - lastSeenTime < 15000);
+                    long currentTime = System.currentTimeMillis() + serverTimeOffset;
+                    long diff = Math.abs(currentTime - lastSeenTime);
+
+                    // Terhubung jika selisih < 45 detik (Toleransi delay network)
+                    // Atau jika selisih sangat besar (Indikasi clock drift alat, tapi data tetap masuk)
+                    boolean currentConn = (diff < 45000 || diff > 3600000);
+
                     if (!firstCheckDone) {
                         isEspConnected = currentConn;
                         firstCheckDone = true;
-                        if (!currentConn) showConnectionNotification("Alat Terputus", "Koneksi ke alat tidak terdeteksi.");
+                        broadcastEspStatus(currentConn);
                     } else if (currentConn != isEspConnected) {
                         isEspConnected = currentConn;
+                        broadcastEspStatus(currentConn);
                         if (currentConn) {
                             Toast.makeText(MainActivity.this, "Alat Terhubung Kembali", Toast.LENGTH_SHORT).show();
-                            showConnectionNotification("ESP32 Tersambung", "Alat termonitor kembali online.");
                         } else {
-                            Toast.makeText(MainActivity.this, "Koneksi Alat Terputus!", Toast.LENGTH_LONG).show();
-                            showConnectionNotification("ESP32 Terputus", "Koneksi ke alat terputus! Mohon periksa daya atau internet alat.");
+                            Toast.makeText(MainActivity.this, "Koneksi Alat Terputus", Toast.LENGTH_LONG).show();
                         }
                     }
                 }
-                connHandler.postDelayed(this, 5000);
+                connHandler.postDelayed(this, 10000);
             }
         };
         connHandler.post(connRunnable);
     }
 
-    private void showConnectionNotification(String title, String message) {
-        NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
-        String channelId = "esp_conn_status";
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            NotificationChannel channel = new NotificationChannel(channelId, "Status Koneksi ESP32", NotificationManager.IMPORTANCE_HIGH);
-            if (notificationManager != null) notificationManager.createNotificationChannel(channel);
+    // Broadcast status koneksi ESP32 ke semua Fragment yang aktif
+    private void broadcastEspStatus(boolean isConnected) {
+        for (Fragment fragment : getSupportFragmentManager().getFragments()) {
+            if (fragment instanceof EspConnectionListener && fragment.isAdded()) {
+                ((EspConnectionListener) fragment).onEspConnectionChanged(isConnected);
+            }
         }
-        NotificationCompat.Builder builder = new NotificationCompat.Builder(this, channelId)
-                .setSmallIcon(R.drawable.suhutahu)
-                .setContentTitle(title)
-                .setContentText(message)
-                .setPriority(NotificationCompat.PRIORITY_HIGH)
-                .setAutoCancel(true);
-        if (notificationManager != null) notificationManager.notify(102, builder.build());
+    }
+
+    // Getter agar Fragment bisa cek status saat pertama kali dibuat
+    public boolean isEspConnected() {
+        return isEspConnected;
     }
 
     public void handleMultiLogin() {
@@ -212,7 +237,7 @@ public class MainActivity extends AppCompatActivity {
                     EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM);
             sp.edit().clear().commit();
         } catch (Exception ignored) {}
-        Toast.makeText(this, "Akun Anda digunakan di perangkat lain.", Toast.LENGTH_LONG).show();
+        Toast.makeText(this, "Akun digunakan di perangkat lain.", Toast.LENGTH_LONG).show();
         redirectToLogin();
     }
 

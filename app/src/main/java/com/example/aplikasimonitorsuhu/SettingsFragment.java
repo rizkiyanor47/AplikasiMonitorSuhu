@@ -36,6 +36,7 @@ public class SettingsFragment extends Fragment {
     private DatabaseReference dbMonitoring;
     private ValueEventListener configListener;
     private boolean isInitialLoad = true;
+    private final String DB_URL = "https://tofumonitor-default-rtdb.asia-southeast1.firebasedatabase.app";
 
     @Nullable
     @Override
@@ -53,9 +54,8 @@ public class SettingsFragment extends Fragment {
         Button btnSimpanSuhu = view.findViewById(R.id.btn_simpan_suhu);
 
         SharedPreferences sp = requireContext().getSharedPreferences("app_settings", Context.MODE_PRIVATE);
-        dbMonitoring = FirebaseDatabase.getInstance("https://tofumonitor-default-rtdb.asia-southeast1.firebasedatabase.app/").getReference("monitoring");
+        dbMonitoring = FirebaseDatabase.getInstance(DB_URL).getReference("monitoring");
         
-        // Simpan Batas Suhu
         btnSimpanSuhu.setOnClickListener(v -> {
             try {
                 float panas = Float.parseFloat(etBatasPanas.getText().toString());
@@ -77,7 +77,6 @@ public class SettingsFragment extends Fragment {
 
         cardWifiInfo.setOnClickListener(v -> showWifiConfigDialog());
 
-        // Load Saklar Notifikasi
         switchSound.setChecked(sp.getBoolean("use_sound", true));
         switchSound.setOnCheckedChangeListener((bv, isChecked) -> sp.edit().putBoolean("use_sound", isChecked).apply());
         switchVibrate.setChecked(sp.getBoolean("use_vibrate", true));
@@ -116,20 +115,32 @@ public class SettingsFragment extends Fragment {
             @Override
             public void onDataChange(@NonNull DataSnapshot snapshot) {
                 if (getActivity() == null) return;
-                String ssid = snapshot.child("wifi_config").child("current_ssid").getValue(String.class);
-                if (ssid != null) tvCurrentWifi.setText(ssid);
+                
+                // Tampilkan WiFi yang sedang aktif digunakan ESP32 (current_ssid)
+                String currentSsid = snapshot.child("wifi_config").child("current_ssid").getValue(String.class);
+                if (currentSsid != null && !currentSsid.isEmpty()) {
+                    tvCurrentWifi.setText(currentSsid);
+                } else {
+                    // Fallback: tampilkan target ssid jika current_ssid belum ada
+                    String targetSsid = snapshot.child("wifi_config").child("ssid").getValue(String.class);
+                    tvCurrentWifi.setText(targetSsid != null ? targetSsid : "-");
+                }
 
                 if (isInitialLoad) {
-                    Double bPanas = snapshot.child("batas_panas").getValue(Double.class);
-                    Double bAman = snapshot.child("batas_aman").getValue(Double.class);
-                    if (bPanas != null) etBatasPanas.setText(String.valueOf(bPanas.floatValue()));
-                    if (bAman != null) etBatasAman.setText(String.valueOf(bAman.floatValue()));
+                    Object pObj = snapshot.child("batas_panas").getValue();
+                    Object aObj = snapshot.child("batas_aman").getValue();
+                    if (pObj instanceof Number) etBatasPanas.setText(String.valueOf(((Number) pObj).floatValue()));
+                    if (aObj instanceof Number) etBatasAman.setText(String.valueOf(((Number) aObj).floatValue()));
                     isInitialLoad = false;
                 }
 
-                Long lastSeen = snapshot.child("last_seen").getValue(Long.class);
-                if (lastSeen != null) {
-                    if (System.currentTimeMillis() - lastSeen < 15000) {
+                Object lastSeenObj = snapshot.child("last_seen").getValue();
+                if (lastSeenObj instanceof Number) {
+                    long lastSeen = ((Number) lastSeenObj).longValue();
+                    long diff = Math.abs(System.currentTimeMillis() - lastSeen);
+                    
+                    // Sangat toleran: Terhubung jika update < 1 menit ATAU jika selisih sangat besar (jam alat salah)
+                    if (diff < 60000 || diff > 86400000) {
                         tvConnStatus.setText("Terhubung");
                         tvConnStatus.setTextColor(getResources().getColor(android.R.color.holo_green_dark));
                     } else {

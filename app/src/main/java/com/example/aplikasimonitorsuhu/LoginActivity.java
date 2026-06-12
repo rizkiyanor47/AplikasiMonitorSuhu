@@ -58,10 +58,24 @@ public class LoginActivity extends AppCompatActivity {
     // Perbaikan: Hapus tanda miring di akhir URL agar sinkron dengan fragment lain
     private final String DB_URL = "https://tofumonitor-default-rtdb.asia-southeast1.firebasedatabase.app";
 
+    private static final int MAX_FAILED_ATTEMPTS = 5;
+    private static final long LOCKOUT_DURATION_MS = 5 * 60 * 1000; // 5 minutes
+    private SharedPreferences securityPrefs;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         
+        getWindow().setFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE, android.view.WindowManager.LayoutParams.FLAG_SECURE);
+
+        if (SecurityUtils.isDeviceRooted() || SecurityUtils.isEmulator()) {
+            finishAffinity();
+            System.exit(0);
+            return;
+        }
+
+        securityPrefs = getSharedPreferences("security_prefs", MODE_PRIVATE);
+
         mAuth = FirebaseAuth.getInstance();
         
         if (mAuth.getCurrentUser() != null && hasValidLocalSession()) {
@@ -108,11 +122,19 @@ public class LoginActivity extends AppCompatActivity {
         if (TextUtils.isEmpty(email)) { tilEmail.setError("Email wajib diisi"); return; }
         if (TextUtils.isEmpty(password)) { tilPassword.setError("Password wajib diisi"); return; }
 
+        if (isLoginLockedOut()) {
+            long remainingTime = (securityPrefs.getLong("lockout_time", 0) - System.currentTimeMillis()) / 1000;
+            Toast.makeText(this, "Terlalu banyak percobaan gagal. Coba lagi dalam " + remainingTime + " detik.", Toast.LENGTH_LONG).show();
+            return;
+        }
+
         if (recaptchaTasksClient == null) { performLogin(); return; }
 
         recaptchaTasksClient.executeTask(RecaptchaAction.LOGIN)
                 .addOnSuccessListener(this, token -> performLogin())
-                .addOnFailureListener(this, e -> performLogin());
+                .addOnFailureListener(this, e -> {
+                    Toast.makeText(this, "Verifikasi reCAPTCHA gagal: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                });
     }
 
     private void performLogin() {
@@ -121,9 +143,11 @@ public class LoginActivity extends AppCompatActivity {
 
         mAuth.signInWithEmailAndPassword(email, password).addOnCompleteListener(this, task -> {
             if (task.isSuccessful()) {
+                resetFailedLogin();
                 checkWhitelistAndProceed(mAuth.getCurrentUser(), cbRemember.isChecked());
             } else {
-                Toast.makeText(this, "Login Gagal: Akun tidak ditemukan", Toast.LENGTH_SHORT).show();
+                recordFailedLogin();
+                Toast.makeText(this, "Login Gagal: Akun tidak ditemukan atau salah", Toast.LENGTH_SHORT).show();
             }
         });
     }
@@ -148,11 +172,13 @@ public class LoginActivity extends AppCompatActivity {
                 }
 
                 if (isAuthorized) {
+                    resetFailedLogin();
                     String sessionId = UUID.randomUUID().toString();
                     saveLoginStatus(remember, userEmail, sessionId);
                     updateSessionInFirebase(user.getUid(), sessionId);
                 } else {
                     mAuth.signOut();
+                    recordFailedLogin();
                     Toast.makeText(LoginActivity.this, "Email tidak terdaftar di sistem.", Toast.LENGTH_LONG).show();
                 }
             }
@@ -165,6 +191,35 @@ public class LoginActivity extends AppCompatActivity {
                 Toast.makeText(LoginActivity.this, "Gagal akses server: " + error.getMessage(), Toast.LENGTH_SHORT).show();
             }
         });
+    }
+
+    private boolean isLoginLockedOut() {
+        long lockoutTime = securityPrefs.getLong("lockout_time", 0);
+        if (lockoutTime > System.currentTimeMillis()) {
+            return true;
+        } else if (lockoutTime > 0) {
+            resetFailedLogin();
+        }
+        return false;
+    }
+
+    private void recordFailedLogin() {
+        int attempts = securityPrefs.getInt("failed_login_attempts", 0) + 1;
+        SharedPreferences.Editor editor = securityPrefs.edit();
+        if (attempts >= MAX_FAILED_ATTEMPTS) {
+            editor.putLong("lockout_time", System.currentTimeMillis() + LOCKOUT_DURATION_MS);
+            editor.putInt("failed_login_attempts", attempts);
+        } else {
+            editor.putInt("failed_login_attempts", attempts);
+        }
+        editor.apply();
+    }
+
+    private void resetFailedLogin() {
+        securityPrefs.edit()
+                .putInt("failed_login_attempts", 0)
+                .putLong("lockout_time", 0)
+                .apply();
     }
 
     private void updateSessionInFirebase(String userId, String sessionId) {

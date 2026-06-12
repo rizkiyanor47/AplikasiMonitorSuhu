@@ -103,15 +103,15 @@ public class ProfileFragment extends Fragment {
                         EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
                         EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM);
 
-                sharedPreferences.edit().clear().commit(); // Gunakan commit untuk kepastian
-
-                Intent intent = new Intent(getActivity(), LoginActivity.class);
-                intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-                startActivity(intent);
+                sharedPreferences.edit().clear().commit();
             }
         } catch (GeneralSecurityException | IOException e) {
             Log.e(TAG, "Error during session clearing", e);
-            startActivity(new Intent(getActivity(), LoginActivity.class));
+        } finally {
+            // Selalu redirect ke Login, baik sukses maupun exception
+            Intent intent = new Intent(getActivity(), LoginActivity.class);
+            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+            startActivity(intent);
             if (getActivity() != null) getActivity().finishAffinity();
         }
     }

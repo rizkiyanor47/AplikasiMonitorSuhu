@@ -24,11 +24,15 @@ public class SplashActivity extends AppCompatActivity {
         setContentView(R.layout.activity_splash);
 
         new Handler(Looper.getMainLooper()).postDelayed(() -> {
-            if (isUserLoggedIn()) {
-                // Jika sudah login, langsung ke Dashboard
+            // Cek dua kondisi: token Firebase valid DAN sesi lokal valid
+            boolean firebaseLoggedIn = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser() != null;
+            boolean localLoggedIn = isUserLoggedIn();
+
+            if (firebaseLoggedIn && localLoggedIn) {
+                // Keduanya valid: langsung ke Dashboard
                 startActivity(new Intent(SplashActivity.this, MainActivity.class));
             } else {
-                // Jika belum, ke Login Screen
+                // Salah satu tidak valid: ke Login Screen
                 startActivity(new Intent(SplashActivity.this, LoginActivity.class));
             }
             finish();

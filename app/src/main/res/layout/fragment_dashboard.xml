@@ -53,6 +53,8 @@
             android:orientation="vertical">
 
             <!-- Logo Dashboard -->
+
+            <!-- Card Utama (Suhu) -->
             <androidx.constraintlayout.widget.ConstraintLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -63,16 +65,15 @@
                     android:layout_width="90dp"
                     android:layout_height="90dp"
                     android:background="@drawable/bg_logo_white"
+                    android:contentDescription="@string/desc_logo_tofu"
                     android:elevation="8dp"
                     android:padding="18dp"
                     android:src="@drawable/suhutahu"
-                    android:contentDescription="@string/desc_logo_tofu"
                     app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintTop_toTopOf="parent" />
             </androidx.constraintlayout.widget.ConstraintLayout>
 
-            <!-- Card Utama (Suhu) -->
             <androidx.cardview.widget.CardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
