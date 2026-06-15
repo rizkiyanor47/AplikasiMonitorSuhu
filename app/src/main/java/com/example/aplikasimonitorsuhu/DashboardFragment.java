@@ -1,10 +1,12 @@
 package com.example.aplikasimonitorsuhu;
 
+import android.Manifest;
 import android.app.AlertDialog;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
 import android.media.Ringtone;
 import android.media.RingtoneManager;
 import android.net.Uri;
@@ -73,6 +75,7 @@ public class DashboardFragment extends Fragment {
     private Vibrator activeVibrator;
 
     private static final String CHANNEL_ID = "tofu_alert_channel";
+    private static final int PERMISSION_REQUEST_CODE = 101;
 
     private final Handler timerHandler = new Handler(Looper.getMainLooper());
     private final Runnable timerRunnable = new Runnable() {
@@ -102,9 +105,7 @@ public class DashboardFragment extends Fragment {
         btnProfileNav = view.findViewById(R.id.btn_profile_nav);
 
         createNotificationChannel();
-
-        TextView btnSeeAll = view.findViewById(R.id.btn_see_all);
-        CardView btnToHistory = view.findViewById(R.id.btn_to_history);
+        checkAndRequestPermissions();
 
         FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
         if (user != null && user.getEmail() != null) {
@@ -123,14 +124,12 @@ public class DashboardFragment extends Fragment {
         View.OnClickListener toHistoryListener = v -> {
             if (getActivity() != null) {
                 BottomNavigationView bottomNav = getActivity().findViewById(R.id.bottom_nav);
-                if (bottomNav != null) {
-                    bottomNav.setSelectedItemId(R.id.nav_history);
-                }
+                if (bottomNav != null) bottomNav.setSelectedItemId(R.id.nav_history);
             }
         };
 
-        if (btnSeeAll != null) btnSeeAll.setOnClickListener(toHistoryListener);
-        if (btnToHistory != null) btnToHistory.setOnClickListener(toHistoryListener);
+        view.findViewById(R.id.btn_see_all).setOnClickListener(toHistoryListener);
+        view.findViewById(R.id.btn_to_history).setOnClickListener(toHistoryListener);
 
         btnProfileNav.setOnClickListener(v -> {
             if (getActivity() != null) {
@@ -142,43 +141,116 @@ public class DashboardFragment extends Fragment {
         return view;
     }
 
-    private void createNotificationChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            CharSequence name = "Alert Suhu Tahu";
-            String description = "Notifikasi saat suhu tahu sudah aman";
-            int importance = NotificationManager.IMPORTANCE_HIGH;
-            NotificationChannel channel = new NotificationChannel(CHANNEL_ID, name, importance);
-            channel.setDescription(description);
-            NotificationManager notificationManager = getContext().getSystemService(NotificationManager.class);
-            if (notificationManager != null) notificationManager.createNotificationChannel(channel);
+    private void checkAndRequestPermissions() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (requireContext().checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, PERMISSION_REQUEST_CODE);
+            }
         }
     }
 
-    private void sendSystemNotification() {
-        if (getContext() == null) return;
-        NotificationCompat.Builder builder = new NotificationCompat.Builder(getContext(), CHANNEL_ID)
-                .setSmallIcon(R.drawable.suhutahu)
-                .setContentTitle("Suhu Aman - Siap Kemas!")
-                .setContentText("Suhu tahu saat ini " + currentSuhu + "°C. Silakan lakukan pengemasan.")
-                .setPriority(NotificationCompat.PRIORITY_HIGH)
-                .setAutoCancel(true);
-
-        NotificationManager notificationManager = (NotificationManager) getContext().getSystemService(Context.NOTIFICATION_SERVICE);
-        if (notificationManager != null) notificationManager.notify(1, builder.build());
+    private void createNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            NotificationChannel channel = new NotificationChannel(CHANNEL_ID, "Alert Suhu", NotificationManager.IMPORTANCE_HIGH);
+            NotificationManager manager = requireContext().getSystemService(NotificationManager.class);
+            if (manager != null) manager.createNotificationChannel(channel);
+        }
     }
 
-    private void updateTimerUI() {
-        if (startTime <= 0 || tvTimer == null || !isAdded()) return;
-        long diff = System.currentTimeMillis() - startTime;
-        int totalSecs = (int) (diff / 1000);
-        tvTimer.setText(String.format(Locale.getDefault(), "%02d:%02d", totalSecs / 60, totalSecs % 60));
+    private void startMonitoring() {
+        monitoringListener = new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot snapshot) {
+                if (!snapshot.exists() || !isAdded()) return;
+
+                // 1. Update Ambang Batas
+                try {
+                    if (snapshot.hasChild("batas_panas")) firebaseBatasPanas = Float.parseFloat(snapshot.child("batas_panas").getValue().toString());
+                    if (snapshot.hasChild("batas_aman")) firebaseBatasAman = Float.parseFloat(snapshot.child("batas_aman").getValue().toString());
+                } catch (Exception e) { Log.e("Firebase", "Parsing Error", e); }
+
+                // 2. Update Kipas
+                Object fanVal = snapshot.child("fan").getValue();
+                if (fanVal != null) {
+                    currentFan = fanVal.toString().toUpperCase();
+                    tvFanStatus.setText(currentFan);
+                    tvFanStatus.setTextColor(getResources().getColor(("AKTIF".equals(currentFan) || "HIDUP".equals(currentFan)) ? R.color.status_danger : R.color.tofu_brown));
+                }
+
+                // 3. Update Suhu (Selalu update UI teks meskipun sesi belum sinkron)
+                Object suhuObj = snapshot.child("suhu").getValue();
+                if (suhuObj != null) {
+                    try {
+                        currentSuhu = Double.parseDouble(suhuObj.toString());
+                        updateUIOnly(currentSuhu); // Update Tampilan Teks
+                        if (isSessionLoaded) handleSessionLogic(currentSuhu); // Jalankan Logika Stopwatch
+                    } catch (Exception ignored) {}
+                }
+            }
+            @Override public void onCancelled(@NonNull DatabaseError error) { Log.e("Firebase", "Monitoring Cancelled: " + error.getMessage()); }
+        };
+        dbMonitoring.addValueEventListener(monitoringListener);
     }
+
+    private void updateUIOnly(double suhu) {
+        if (!isAdded()) return;
+        if (suhu >= firebaseBatasPanas) {
+            tvStatus.setText(String.format(Locale.getDefault(), "PANAS! (%.1f\u00b0C)", suhu));
+            cardStatus.setCardBackgroundColor(getResources().getColor(R.color.status_danger));
+        } else if (suhu >= firebaseBatasAman) {
+            tvStatus.setText(String.format(Locale.getDefault(), "PENDINGINAN... (%.1f\u00b0C)", suhu));
+            cardStatus.setCardBackgroundColor(getResources().getColor(R.color.status_warning));
+        } else {
+            tvStatus.setText(String.format(Locale.getDefault(), "AMAN (%.1f\u00b0C)", suhu));
+            cardStatus.setCardBackgroundColor(getResources().getColor(R.color.status_safe));
+        }
+    }
+
+    private void handleSessionLogic(double suhu) {
+        if (suhu >= firebaseBatasAman) {
+            if (!isProcessing) startSession(suhu >= firebaseBatasPanas);
+            else if (suhu >= firebaseBatasPanas && !hasBeenHotDuringSession) {
+                hasBeenHotDuringSession = true;
+                dbSession.child("has_been_hot").setValue(true);
+            }
+        } else if (isProcessing && !isAlertShowing) {
+            triggerSafeAlert();
+        }
+    }
+
+    private void startSessionMonitoring() {
+        sessionListener = new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot snapshot) {
+                if (!isAdded()) return;
+                Boolean processing = snapshot.child("is_processing").getValue(Boolean.class);
+                Long st = snapshot.child("start_time").getValue(Long.class);
+                hasBeenHotDuringSession = Boolean.TRUE.equals(snapshot.child("has_been_hot").getValue(Boolean.class));
+
+                if (Boolean.TRUE.equals(processing) && st != null && st > 0) {
+                    isProcessing = true;
+                    startTime = st;
+                    timerHandler.removeCallbacks(timerRunnable);
+                    timerHandler.post(timerRunnable);
+                } else {
+                    isProcessing = false;
+                    startTime = 0;
+                    timerHandler.removeCallbacks(timerRunnable);
+                }
+                isSessionLoaded = true;
+                if (currentSuhu != -1.0) updateUIOnly(currentSuhu);
+            }
+            @Override public void onCancelled(@NonNull DatabaseError error) { isSessionLoaded = true; }
+        };
+        dbSession.addValueEventListener(sessionListener);
+    }
+
+    // ... (Fungsi triggerSafeAlert, saveHistoryAndStop, stopAlerts, updateTimerUI, fetchHistoryData tetap sama)
 
     private void startSession(boolean hot) {
         startTime = System.currentTimeMillis();
         isProcessing = true;
         hasBeenHotDuringSession = hot;
-        
         timerHandler.removeCallbacks(timerRunnable);
         timerHandler.post(timerRunnable);
 
@@ -211,165 +283,46 @@ public class DashboardFragment extends Fragment {
             HistoryModel newHistory = new HistoryModel(tanggal, durasiFinal, suhuAkhir, System.currentTimeMillis());
             dbUserHistory.push().setValue(newHistory);
         }
-        
         tvTimer.setText(durasiFinal);
         startTime = 0;
-        hasBeenHotDuringSession = false;
-    }
-
-    private void startSessionMonitoring() {
-        sessionListener = new ValueEventListener() {
-            @Override
-            public void onDataChange(@NonNull DataSnapshot snapshot) {
-                if (!isAdded()) return;
-                Boolean processing = snapshot.child("is_processing").getValue(Boolean.class);
-                Long st = snapshot.child("start_time").getValue(Long.class);
-                Boolean beenHot = snapshot.child("has_been_hot").getValue(Boolean.class);
-
-                if (processing != null && processing) {
-                    isProcessing = true;
-                    if (st != null && st > 0) {
-                        startTime = st;
-                        timerHandler.removeCallbacks(timerRunnable);
-                        timerHandler.post(timerRunnable);
-                    }
-                    if (beenHot != null) hasBeenHotDuringSession = beenHot;
-                } else {
-                    isProcessing = false;
-                    startTime = 0;
-                    hasBeenHotDuringSession = false;
-                    timerHandler.removeCallbacks(timerRunnable);
-                }
-                isSessionLoaded = true;
-                if (currentSuhu != -1.0) updateUIBySuhu(currentSuhu);
-            }
-            @Override
-            public void onCancelled(@NonNull DatabaseError error) {}
-        };
-        dbSession.addValueEventListener(sessionListener);
-    }
-
-    private void startMonitoring() {
-        monitoringListener = new ValueEventListener() {
-            @Override
-            public void onDataChange(@NonNull DataSnapshot snapshot) {
-                if (!snapshot.exists() || !isAdded()) return;
-
-                try {
-                    if (snapshot.hasChild("batas_panas")) {
-                        Object val = snapshot.child("batas_panas").getValue();
-                        if (val != null) firebaseBatasPanas = Float.parseFloat(val.toString());
-                    }
-                    if (snapshot.hasChild("batas_aman")) {
-                        Object val = snapshot.child("batas_aman").getValue();
-                        if (val != null) firebaseBatasAman = Float.parseFloat(val.toString());
-                    }
-                } catch (Exception e) {
-                    Log.e("Dashboard", "Error parsing thresholds: " + e.getMessage());
-                }
-
-                Object fanVal = snapshot.child("fan").getValue();
-                if (fanVal != null) {
-                    String newFanStatus = fanVal.toString().toUpperCase();
-                    if (isProcessing && ("MATI".equals(newFanStatus) || "OFF".equals(newFanStatus)) 
-                        && !("MATI".equals(currentFan) || "OFF".equals(currentFan))) {
-                        boolean shouldAlert = hasBeenHotDuringSession;
-                        saveHistoryAndStop();
-                        if (shouldAlert && !isAlertShowing) triggerSafeAlert();
-                    }
-                    currentFan = newFanStatus;
-                    if (tvFanStatus != null) {
-                        tvFanStatus.setText(currentFan);
-                        tvFanStatus.setTextColor(getResources().getColor(("AKTIF".equals(currentFan) || "HIDUP".equals(currentFan)) ? R.color.status_danger : R.color.tofu_brown));
-                    }
-                }
-
-                Object suhuObj = snapshot.child("suhu").getValue();
-                if (suhuObj != null) {
-                    try {
-                        currentSuhu = Double.parseDouble(suhuObj.toString());
-                        if (isSessionLoaded) updateUIBySuhu(currentSuhu);
-                    } catch (Exception ignored) {}
-                }
-            }
-            @Override
-            public void onCancelled(@NonNull DatabaseError error) {}
-        };
-        dbMonitoring.addValueEventListener(monitoringListener);
-    }
-
-    private void updateUIBySuhu(double suhu) {
-        if (!isAdded() || suhu == -1.0) return;
-
-        if (suhu >= firebaseBatasPanas) {
-            tvStatus.setText(String.format(Locale.getDefault(), "PANAS! (%.1f\u00b0C)", suhu));
-            cardStatus.setCardBackgroundColor(getResources().getColor(R.color.status_danger));
-            if (!isProcessing) {
-                startSession(true);
-            } else if (!hasBeenHotDuringSession) {
-                hasBeenHotDuringSession = true;
-                dbSession.child("has_been_hot").setValue(true);
-            }
-        } else if (suhu >= firebaseBatasAman) {
-            tvStatus.setText(String.format(Locale.getDefault(), "PENDINGINAN... (%.1f\u00b0C)", suhu));
-            cardStatus.setCardBackgroundColor(getResources().getColor(R.color.status_warning));
-            if (!isProcessing) {
-                startSession(false);
-            }
-        } else {
-            tvStatus.setText(String.format(Locale.getDefault(), "AMAN (%.1f\u00b0C)", suhu));
-            cardStatus.setCardBackgroundColor(getResources().getColor(R.color.status_safe));
-            if (isProcessing) {
-                boolean shouldAlert = hasBeenHotDuringSession;
-                saveHistoryAndStop();
-                if (shouldAlert && !isAlertShowing) triggerSafeAlert();
-            } else {
-                tvTimer.setText("00:00");
-            }
-        }
     }
 
     private void triggerSafeAlert() {
         if (!isAdded() || isAlertShowing) return;
-        Context context = getContext();
-        if (context == null) return;
         isAlertShowing = true;
         
-        sendSystemNotification();
+        // Notifikasi Sistem
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(requireContext(), CHANNEL_ID)
+                .setSmallIcon(R.drawable.suhutahu)
+                .setContentTitle("Suhu Aman - Siap Kemas!")
+                .setContentText("Suhu saat ini " + currentSuhu + "°C.")
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setAutoCancel(true);
+        NotificationManager nm = (NotificationManager) requireContext().getSystemService(Context.NOTIFICATION_SERVICE);
+        if (nm != null) nm.notify(1, builder.build());
 
-        SharedPreferences sp = context.getSharedPreferences("app_settings", Context.MODE_PRIVATE);
-        
-        // Integrasi Pengaturan Suara
+        SharedPreferences sp = requireContext().getSharedPreferences("app_settings", Context.MODE_PRIVATE);
         if (sp.getBoolean("use_sound", true)) {
             try {
                 Uri uri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM);
-                activeRingtone = RingtoneManager.getRingtone(context, uri);
-                if (activeRingtone != null) {
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) activeRingtone.setLooping(true);
-                    activeRingtone.play();
-                }
+                activeRingtone = RingtoneManager.getRingtone(getContext(), uri);
+                if (activeRingtone != null) { activeRingtone.play(); if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) activeRingtone.setLooping(true); }
             } catch (Exception ignored) {}
         }
-
-        // Integrasi Pengaturan Getar
         if (sp.getBoolean("use_vibrate", true)) {
-            activeVibrator = (Vibrator) context.getSystemService(Context.VIBRATOR_SERVICE);
-            if (activeVibrator != null) {
-                long[] pattern = {0, 1000, 500, 1000};
-                activeVibrator.vibrate(VibrationEffect.createWaveform(pattern, 0));
-            }
+            activeVibrator = (Vibrator) requireContext().getSystemService(Context.VIBRATOR_SERVICE);
+            if (activeVibrator != null) activeVibrator.vibrate(VibrationEffect.createWaveform(new long[]{0, 1000, 500, 1000}, 0));
         }
 
-        // Dialog Konfirmasi "Siap Kemas"
-        new AlertDialog.Builder(context)
+        new AlertDialog.Builder(getContext())
                 .setTitle("Siap Kemas!")
-                .setMessage("Suhu sudah aman (" + currentSuhu + "°C). Tahu sudah bisa dikemas.")
+                .setMessage("Tahu sudah dingin (" + currentSuhu + "°C). Sesi berakhir, tekan OK untuk simpan riwayat.")
                 .setCancelable(false)
                 .setPositiveButton("OK", (dialog, which) -> {
+                    saveHistoryAndStop();
                     stopAlerts();
                     isAlertShowing = false;
-                })
-                .show();
+                }).show();
     }
 
     private void stopAlerts() {
@@ -377,13 +330,11 @@ public class DashboardFragment extends Fragment {
         if (activeVibrator != null) activeVibrator.cancel();
     }
 
-    @Override
-    public void onDestroyView() {
-        super.onDestroyView();
-        stopAlerts();
-        if (dbMonitoring != null) dbMonitoring.removeEventListener(monitoringListener);
-        if (dbSession != null) dbSession.removeEventListener(sessionListener);
-        timerHandler.removeCallbacks(timerRunnable);
+    private void updateTimerUI() {
+        if (startTime <= 0 || tvTimer == null || !isAdded()) return;
+        long diff = System.currentTimeMillis() - startTime;
+        int totalSecs = (int) (diff / 1000);
+        tvTimer.setText(String.format(Locale.getDefault(), "%02d:%02d", totalSecs / 60, totalSecs % 60));
     }
 
     private void fetchHistoryData() {
@@ -407,15 +358,21 @@ public class DashboardFragment extends Fragment {
                 }
                 tvLongestTime.setText(maxStr);
             }
-            @Override
-            public void onCancelled(@NonNull DatabaseError error) {}
+            @Override public void onCancelled(@NonNull DatabaseError error) {}
         });
     }
 
     private long durationToSeconds(String dur) {
-        try {
-            String[] p = dur.split(":");
-            return Integer.parseInt(p[0]) * 60L + Integer.parseInt(p[1]);
-        } catch (Exception e) { return 0; }
+        try { String[] p = dur.split(":"); return Integer.parseInt(p[0]) * 60L + Integer.parseInt(p[1]); }
+        catch (Exception e) { return 0; }
+    }
+
+    @Override
+    public void onDestroyView() {
+        super.onDestroyView();
+        stopAlerts();
+        if (dbMonitoring != null) dbMonitoring.removeEventListener(monitoringListener);
+        if (dbSession != null) dbSession.removeEventListener(sessionListener);
+        timerHandler.removeCallbacks(timerRunnable);
     }
 }

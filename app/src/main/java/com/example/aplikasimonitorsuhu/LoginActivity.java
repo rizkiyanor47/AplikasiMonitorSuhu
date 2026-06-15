@@ -2,9 +2,14 @@ package com.example.aplikasimonitorsuhu;
 
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.graphics.Color;
 import android.os.Bundle;
+import android.os.Handler;
 import android.text.TextUtils;
 import android.util.Log;
+import android.view.LayoutInflater;
+import android.view.View;
+import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -13,6 +18,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.cardview.widget.CardView;
 import androidx.security.crypto.EncryptedSharedPreferences;
 import androidx.security.crypto.MasterKey;
 
@@ -55,11 +61,10 @@ public class LoginActivity extends AppCompatActivity {
     private GoogleSignInClient mGoogleSignInClient;
     private RecaptchaTasksClient recaptchaTasksClient;
     
-    // Perbaikan: Hapus tanda miring di akhir URL agar sinkron dengan fragment lain
     private final String DB_URL = "https://tofumonitor-default-rtdb.asia-southeast1.firebasedatabase.app";
 
     private static final int MAX_FAILED_ATTEMPTS = 5;
-    private static final long LOCKOUT_DURATION_MS = 5 * 60 * 1000; // 5 minutes
+    private static final long LOCKOUT_DURATION_MS = 5 * 60 * 1000; 
     private SharedPreferences securityPrefs;
 
     @Override
@@ -100,8 +105,15 @@ public class LoginActivity extends AppCompatActivity {
         cbRemember = findViewById(R.id.cb_remember);
         tvForgotPassword = findViewById(R.id.tv_forgot_password);
         
-        findViewById(R.id.btn_login).setOnClickListener(v -> executeRecaptchaAndLogin());
-        findViewById(R.id.btn_google_signin).setOnClickListener(v -> signInWithGoogle());
+        findViewById(R.id.btn_login).setOnClickListener(v -> {
+            String email = etEmail.getText().toString().trim();
+            String password = etPassword.getText().toString().trim();
+            if (TextUtils.isEmpty(email)) { tilEmail.setError("Email wajib diisi"); return; }
+            if (TextUtils.isEmpty(password)) { tilPassword.setError("Password wajib diisi"); return; }
+            showCaptchaDialog(this::performEmailLogin);
+        });
+        
+        findViewById(R.id.btn_google_signin).setOnClickListener(v -> showCaptchaDialog(this::signInWithGoogle));
 
         if (tvForgotPassword != null) {
             tvForgotPassword.setOnClickListener(v -> showForgotPasswordDialog());
@@ -114,30 +126,60 @@ public class LoginActivity extends AppCompatActivity {
                 .addOnFailureListener(this, e -> Log.e(TAG, "reCAPTCHA Error: " + e.getMessage()));
     }
 
-    private void executeRecaptchaAndLogin() {
-        if (etEmail == null || etPassword == null) return;
-        String email = etEmail.getText().toString().trim();
-        String password = etPassword.getText().toString().trim();
+    private void showCaptchaDialog(Runnable onVerifiedAction) {
+        View dialogView = LayoutInflater.from(this).inflate(R.layout.dialog_captcha, null);
+        AlertDialog dialog = new AlertDialog.Builder(this)
+                .setView(dialogView)
+                .setCancelable(true)
+                .create();
 
-        if (TextUtils.isEmpty(email)) { tilEmail.setError("Email wajib diisi"); return; }
-        if (TextUtils.isEmpty(password)) { tilPassword.setError("Password wajib diisi"); return; }
+        CardView cvCaptcha = dialogView.findViewById(R.id.cv_captcha_dialog);
+        CheckBox checkBox = dialogView.findViewById(R.id.checkbox_captcha_dialog);
+        TextView tvStatus = dialogView.findViewById(R.id.tv_captcha_dialog_status);
+        View tvCancel = dialogView.findViewById(R.id.tv_cancel_captcha);
 
+        if (tvCancel != null) {
+            tvCancel.setOnClickListener(v -> dialog.dismiss());
+        }
+
+        cvCaptcha.setOnClickListener(v -> {
+            if (recaptchaTasksClient == null) {
+                Toast.makeText(this, "Keamanan sedang dipersiapkan...", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+            tvStatus.setText("Memverifikasi...");
+            recaptchaTasksClient.executeTask(RecaptchaAction.LOGIN)
+                    .addOnSuccessListener(this, token -> {
+                        checkBox.setChecked(true);
+                        tvStatus.setText("Berhasil! Mengalihkan...");
+                        tvStatus.setTextColor(Color.parseColor("#2E7D32"));
+                        
+                        new Handler().postDelayed(() -> {
+                            if (!isFinishing()) {
+                                dialog.dismiss();
+                                onVerifiedAction.run();
+                            }
+                        }, 800);
+                    })
+                    .addOnFailureListener(this, e -> {
+                        tvStatus.setText("Verifikasi Gagal");
+                        tvStatus.setTextColor(Color.RED);
+                        Toast.makeText(this, "Error: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                    });
+        });
+
+        dialog.show();
+    }
+
+    private void performEmailLogin() {
         if (isLoginLockedOut()) {
-            long remainingTime = (securityPrefs.getLong("lockout_time", 0) - System.currentTimeMillis()) / 1000;
+            long lockoutTime = securityPrefs.getLong("lockout_time", 0);
+            long remainingTime = (lockoutTime - System.currentTimeMillis()) / 1000;
             Toast.makeText(this, "Terlalu banyak percobaan gagal. Coba lagi dalam " + remainingTime + " detik.", Toast.LENGTH_LONG).show();
             return;
         }
 
-        if (recaptchaTasksClient == null) { performLogin(); return; }
-
-        recaptchaTasksClient.executeTask(RecaptchaAction.LOGIN)
-                .addOnSuccessListener(this, token -> performLogin())
-                .addOnFailureListener(this, e -> {
-                    Toast.makeText(this, "Verifikasi reCAPTCHA gagal: " + e.getMessage(), Toast.LENGTH_SHORT).show();
-                });
-    }
-
-    private void performLogin() {
         String email = etEmail.getText().toString().trim();
         String password = etPassword.getText().toString().trim();
 
@@ -155,7 +197,6 @@ public class LoginActivity extends AppCompatActivity {
     private void checkWhitelistAndProceed(FirebaseUser user, boolean remember) {
         if (user == null) return;
         final String userEmail = user.getEmail();
-        
         DatabaseReference whitelistRef = FirebaseDatabase.getInstance(DB_URL).getReference("whitelist");
         whitelistRef.addListenerForSingleValueEvent(new ValueEventListener() {
             @Override
@@ -170,7 +211,6 @@ public class LoginActivity extends AppCompatActivity {
                         }
                     }
                 }
-
                 if (isAuthorized) {
                     resetFailedLogin();
                     String sessionId = UUID.randomUUID().toString();
@@ -179,53 +219,34 @@ public class LoginActivity extends AppCompatActivity {
                 } else {
                     mAuth.signOut();
                     recordFailedLogin();
-                    Toast.makeText(LoginActivity.this, "Email tidak terdaftar di sistem.", Toast.LENGTH_LONG).show();
+                    Toast.makeText(LoginActivity.this, "Email tidak terdaftar.", Toast.LENGTH_LONG).show();
                 }
             }
-
-            @Override
-            public void onCancelled(@NonNull DatabaseError error) {
-                mAuth.signOut();
-                // Menampilkan pesan error teknis jika terjadi kendala Rules/Jaringan
-                Log.e(TAG, "Whitelist Error: " + error.getMessage());
-                Toast.makeText(LoginActivity.this, "Gagal akses server: " + error.getMessage(), Toast.LENGTH_SHORT).show();
-            }
+            @Override public void onCancelled(@NonNull DatabaseError error) { mAuth.signOut(); }
         });
     }
 
     private boolean isLoginLockedOut() {
         long lockoutTime = securityPrefs.getLong("lockout_time", 0);
-        if (lockoutTime > System.currentTimeMillis()) {
-            return true;
-        } else if (lockoutTime > 0) {
-            resetFailedLogin();
-        }
+        if (lockoutTime > System.currentTimeMillis()) return true;
+        else if (lockoutTime > 0) resetFailedLogin();
         return false;
     }
 
     private void recordFailedLogin() {
         int attempts = securityPrefs.getInt("failed_login_attempts", 0) + 1;
         SharedPreferences.Editor editor = securityPrefs.edit();
-        if (attempts >= MAX_FAILED_ATTEMPTS) {
-            editor.putLong("lockout_time", System.currentTimeMillis() + LOCKOUT_DURATION_MS);
-            editor.putInt("failed_login_attempts", attempts);
-        } else {
-            editor.putInt("failed_login_attempts", attempts);
-        }
-        editor.apply();
+        if (attempts >= MAX_FAILED_ATTEMPTS) editor.putLong("lockout_time", System.currentTimeMillis() + LOCKOUT_DURATION_MS);
+        editor.putInt("failed_login_attempts", attempts).apply();
     }
 
     private void resetFailedLogin() {
-        securityPrefs.edit()
-                .putInt("failed_login_attempts", 0)
-                .putLong("lockout_time", 0)
-                .apply();
+        securityPrefs.edit().putInt("failed_login_attempts", 0).putLong("lockout_time", 0).apply();
     }
 
     private void updateSessionInFirebase(String userId, String sessionId) {
         FirebaseDatabase.getInstance(DB_URL).getReference("users").child(userId).child("current_session_id")
-                .setValue(sessionId)
-                .addOnSuccessListener(aVoid -> goToMainActivity(sessionId, true));
+                .setValue(sessionId).addOnSuccessListener(aVoid -> goToMainActivity(sessionId, true));
     }
 
     private void goToMainActivity(String sessionId, boolean isNewLogin) {
@@ -242,9 +263,7 @@ public class LoginActivity extends AppCompatActivity {
             SharedPreferences sp = EncryptedSharedPreferences.create(this, "user_session", masterKey,
                     EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
                     EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM);
-            sp.edit().putBoolean("is_logged_in", isLoggedIn)
-                    .putString("user_email", userEmail)
-                    .putString("session_id", sessionId).apply();
+            sp.edit().putBoolean("is_logged_in", isLoggedIn).putString("user_email", userEmail).putString("session_id", sessionId).apply();
         } catch (Exception ignored) {}
     }
 
@@ -271,37 +290,24 @@ public class LoginActivity extends AppCompatActivity {
             try {
                 GoogleSignInAccount account = task.getResult(ApiException.class);
                 if (account != null) firebaseAuthWithGoogle(account.getIdToken());
-            } catch (ApiException e) {
-                Toast.makeText(this, "Gagal login Google: " + e.getMessage(), Toast.LENGTH_SHORT).show();
-            }
+            } catch (ApiException e) { Toast.makeText(this, "Gagal login Google", Toast.LENGTH_SHORT).show(); }
         }
     }
 
     private void firebaseAuthWithGoogle(String idToken) {
         AuthCredential credential = GoogleAuthProvider.getCredential(idToken, null);
         mAuth.signInWithCredential(credential).addOnCompleteListener(this, task -> {
-            if (task.isSuccessful()) {
-                checkWhitelistAndProceed(mAuth.getCurrentUser(), true);
-            }
+            if (task.isSuccessful()) checkWhitelistAndProceed(mAuth.getCurrentUser(), true);
         });
     }
 
     private void showForgotPasswordDialog() {
         EditText resetMail = new EditText(this);
         resetMail.setHint("Email Anda");
-        new AlertDialog.Builder(this)
-                .setTitle("Lupa Kata Sandi?")
-                .setMessage("Masukkan alamat email untuk reset password.")
-                .setView(resetMail)
+        new AlertDialog.Builder(this).setTitle("Lupa Password?").setMessage("Masukkan email untuk reset.").setView(resetMail)
                 .setPositiveButton("Kirim", (dialog, which) -> {
                     String mail = resetMail.getText().toString().trim();
-                    if (!TextUtils.isEmpty(mail)) {
-                        mAuth.sendPasswordResetEmail(mail).addOnSuccessListener(unused -> 
-                            Toast.makeText(this, "Cek email Anda.", Toast.LENGTH_SHORT).show()
-                        );
-                    }
-                })
-                .setNegativeButton("Batal", null)
-                .show();
+                    if (!TextUtils.isEmpty(mail)) mAuth.sendPasswordResetEmail(mail);
+                }).setNegativeButton("Batal", null).show();
     }
 }
