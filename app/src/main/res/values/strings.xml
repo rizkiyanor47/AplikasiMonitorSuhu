@@ -16,6 +16,16 @@
     <string name="forgot_password">Lupa Kata Sandi?</string>
     <string name="btn_login">Masuk</string>
     <string name="or_login_with">Atau masuk dengan</string>
+    <string name="error_email_required">Email wajib diisi</string>
+    <string name="error_password_required">Kata sandi wajib diisi</string>
+    <string name="error_captcha_required">Silakan verifikasi bahwa Anda bukan robot</string>
+    <string name="msg_verifying">Memverifikasi…</string>
+    <string name="msg_verify_success">Berhasil! Mengalihkan…</string>
+    <string name="msg_verify_failed">Verifikasi Gagal</string>
+    <string name="msg_security_preparing">Keamanan sedang dipersiapkan…</string>
+    <string name="error_login_failed">Login Gagal: Akun tidak ditemukan atau salah</string>
+    <string name="error_email_not_registered">Email tidak terdaftar.</string>
+    <string name="msg_lockout">Terlalu banyak percobaan gagal. Coba lagi dalam %1$d detik.</string>
 
     <!-- Strings for History -->
     <string name="title_history">Riwayat Pemantauan</string>
@@ -36,6 +46,7 @@
     <string name="label_sinyal">Status Koneksi</string>
     <string name="sinyal_kuat">Terhubung</string>
     <string name="btn_logout">Keluar Akun</string>
+    <string name="status_alat_offline">Alat Offline</string>
 
     <!-- Strings for Dashboard -->
     <string name="label_status">Status:</string>
@@ -43,8 +54,13 @@
     <string name="label_waktu_terlama">Rekor Terlama</string>
     <string name="label_riwayat_terakhir">Riwayat Terakhir</string>
     <string name="label_lihat_semua">Lihat Semua</string>
-    <string name="status_aman">AMAN</string>
-    <string name="status_pendinginan">SEDANG PROSES PENDINGINAN</string>
-    <string name="status_panas">PANAS</string>
+    <string name="status_aman">AMAN (%1$.1f°C)</string>
+    <string name="status_pendinginan">PENDINGINAN… (%1$.1f°C)</string>
+    <string name="status_panas">PANAS! (%1$.1f°C)</string>
+    <string name="status_offline_format">ALAT OFFLINE (%1$.1f°C)</string>
     <string name="label_status_pendinginan">STATUS PENDINGINAN</string>
+    <string name="title_ready_to_pack">Siap Kemas!</string>
+    <string name="msg_ready_to_pack">Tahu sudah dingin (%1$.1f°C). Sesi berakhir, tekan OK untuk simpan riwayat.</string>
+    <string name="notif_title_safe">Suhu Aman - Siap Kemas!</string>
+    <string name="notif_content_safe">Suhu saat ini %1$.1f°C.</string>
 </resources>

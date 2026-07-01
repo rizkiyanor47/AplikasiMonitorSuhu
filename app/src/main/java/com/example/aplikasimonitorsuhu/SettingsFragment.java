@@ -94,16 +94,21 @@ public class SettingsFragment extends Fragment {
 
         new AlertDialog.Builder(getContext())
                 .setTitle("Ganti WiFi Alat")
-                .setMessage("ESP32 akan restart otomatis setelah WiFi diubah.")
+                .setMessage("ESP32 akan mencoba menyambung ke WiFi baru. Status koneksi akan diperbarui setelah berhasil.")
                 .setView(dialogView)
-                .setPositiveButton("Simpan", (dialog, which) -> {
+                .setPositiveButton("Sambungkan", (dialog, which) -> {
                     String s = etSsid.getText().toString().trim();
                     String p = etPass.getText().toString().trim();
                     if (!s.isEmpty() && !p.isEmpty()) {
                         Map<String, Object> w = new HashMap<>();
-                        w.put("ssid", s); w.put("password", p);
+                        w.put("ssid", s); 
+                        w.put("password", p);
+                        w.put("pending_update", true); // Trigger tanda sedang proses
                         dbMonitoring.child("wifi_config").updateChildren(w);
-                        Toast.makeText(getContext(), "Konfigurasi dikirim...", Toast.LENGTH_SHORT).show();
+                        
+                        tvConnStatus.setText("Sedang Menghubungkan...");
+                        tvConnStatus.setTextColor(getResources().getColor(android.R.color.holo_orange_dark));
+                        Toast.makeText(getContext(), "Instruksi dikirim ke alat...", Toast.LENGTH_SHORT).show();
                     }
                 })
                 .setNegativeButton("Batal", null)
@@ -114,37 +119,31 @@ public class SettingsFragment extends Fragment {
         configListener = new ValueEventListener() {
             @Override
             public void onDataChange(@NonNull DataSnapshot snapshot) {
-                if (getActivity() == null) return;
+                if (!isAdded()) return;
                 
-                // Tampilkan WiFi yang sedang aktif digunakan ESP32 (current_ssid)
                 String currentSsid = snapshot.child("wifi_config").child("current_ssid").getValue(String.class);
-                if (currentSsid != null && !currentSsid.isEmpty()) {
-                    tvCurrentWifi.setText(currentSsid);
-                } else {
-                    // Fallback: tampilkan target ssid jika current_ssid belum ada
-                    String targetSsid = snapshot.child("wifi_config").child("ssid").getValue(String.class);
-                    tvCurrentWifi.setText(targetSsid != null ? targetSsid : "-");
-                }
+                tvCurrentWifi.setText(currentSsid != null ? currentSsid : "Tidak Terdeteksi");
 
                 if (isInitialLoad) {
                     Object pObj = snapshot.child("batas_panas").getValue();
                     Object aObj = snapshot.child("batas_aman").getValue();
-                    if (pObj instanceof Number) etBatasPanas.setText(String.valueOf(((Number) pObj).floatValue()));
-                    if (aObj instanceof Number) etBatasAman.setText(String.valueOf(((Number) aObj).floatValue()));
+                    if (pObj != null) etBatasPanas.setText(pObj.toString());
+                    if (aObj != null) etBatasAman.setText(aObj.toString());
                     isInitialLoad = false;
                 }
 
+                // Logika Deteksi Koneksi yang lebih cepat (20 Detik)
                 Object lastSeenObj = snapshot.child("last_seen").getValue();
                 if (lastSeenObj instanceof Number) {
                     long lastSeen = ((Number) lastSeenObj).longValue();
-                    long diff = Math.abs(System.currentTimeMillis() - lastSeen);
+                    long currentTime = System.currentTimeMillis();
+                    long diff = Math.abs(currentTime - lastSeen);
                     
-                    // Sangat toleran: Terhubung jika update < 1 menit ATAU jika selisih sangat besar (jam alat salah)
-                    if (diff < 60000 || diff > 86400000) {
+                    if (diff < 20000) { // Toleransi 20 detik
                         tvConnStatus.setText("Terhubung");
                         tvConnStatus.setTextColor(getResources().getColor(android.R.color.holo_green_dark));
                     } else {
-                        tvConnStatus.setText("Terputus");
+                        tvConnStatus.setText("Alat Offline");
                         tvConnStatus.setTextColor(getResources().getColor(android.R.color.holo_red_dark));
                     }
                 }

@@ -189,7 +189,7 @@ public class MainActivity extends AppCompatActivity {
                     long currentTime = System.currentTimeMillis() + serverTimeOffset;
                     long diff = Math.abs(currentTime - lastSeenTime);
 
-                    // Terhubung jika selisih < 45 detik (Toleransi delay network)
+
                     // Atau jika selisih sangat besar (Indikasi clock drift alat, tapi data tetap masuk)
                     boolean currentConn = (diff < 45000 || diff > 3600000);
 
@@ -207,7 +207,7 @@ public class MainActivity extends AppCompatActivity {
                         }
                     }
                 }
-                connHandler.postDelayed(this, 10000);
+                connHandler.postDelayed(this, 1000);
             }
         };
         connHandler.post(connRunnable);
