@@ -26,16 +26,19 @@ import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
 
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 
-public class SettingsFragment extends Fragment {
+public class SettingsFragment extends Fragment implements MainActivity.EspConnectionListener {
 
     private SwitchMaterial switchSound, switchVibrate;
     private TextView tvConnStatus, tvCurrentWifi;
     private TextInputEditText etBatasPanas, etBatasAman;
     private DatabaseReference dbMonitoring;
     private ValueEventListener configListener;
+    
     private boolean isInitialLoad = true;
+    private Boolean lastKnownConnection = null;
     private final String DB_URL = "https://tofumonitor-default-rtdb.asia-southeast1.firebasedatabase.app";
 
     @Nullable
@@ -58,20 +61,23 @@ public class SettingsFragment extends Fragment {
         
         btnSimpanSuhu.setOnClickListener(v -> {
             try {
-                float panas = Float.parseFloat(etBatasPanas.getText().toString());
-                float aman = Float.parseFloat(etBatasAman.getText().toString());
+                String pStr = etBatasPanas.getText().toString().trim();
+                String aStr = etBatasAman.getText().toString().trim();
+                if (pStr.isEmpty() || aStr.isEmpty()) return;
+
+                float panas = Float.parseFloat(pStr);
+                float aman = Float.parseFloat(aStr);
                 if (aman >= panas) {
-                    Toast.makeText(getContext(), "Batas Aman harus lebih kecil!", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(requireContext(), "Batas Aman harus lebih kecil!", Toast.LENGTH_SHORT).show();
                     return;
                 }
-                sp.edit().putFloat("batas_panas", panas).putFloat("batas_aman", aman).apply();
                 Map<String, Object> updates = new HashMap<>();
                 updates.put("batas_panas", panas);
                 updates.put("batas_aman", aman);
                 dbMonitoring.updateChildren(updates);
-                Toast.makeText(getContext(), "Batas Suhu Berhasil Diperbarui!", Toast.LENGTH_SHORT).show();
+                Toast.makeText(requireContext(), "Batas Suhu Disimpan!", Toast.LENGTH_SHORT).show();
             } catch (Exception e) {
-                Toast.makeText(getContext(), "Input tidak valid", Toast.LENGTH_SHORT).show();
+                Toast.makeText(requireContext(), "Input tidak valid", Toast.LENGTH_SHORT).show();
             }
         });
 
@@ -82,71 +88,119 @@ public class SettingsFragment extends Fragment {
         switchVibrate.setChecked(sp.getBoolean("use_vibrate", true));
         switchVibrate.setOnCheckedChangeListener((bv, isChecked) -> sp.edit().putBoolean("use_vibrate", isChecked).apply());
 
-        monitorConfigAndConnection();
+        monitorConfig();
+        updateConnectionUI();
 
         return view;
     }
 
+    private void updateConnectionUI() {
+        if (!isAdded()) return;
+        boolean isConnected = false;
+        if (getActivity() instanceof MainActivity) {
+            isConnected = ((MainActivity) getActivity()).getEspConnectionStatus();
+        }
+
+        if (isConnected) {
+            tvConnStatus.setText("Terhubung");
+            tvConnStatus.setTextColor(getResources().getColor(android.R.color.holo_green_dark));
+        } else {
+            tvConnStatus.setText("Alat Offline");
+            tvConnStatus.setTextColor(getResources().getColor(android.R.color.holo_red_dark));
+        }
+
+        if (lastKnownConnection != null && lastKnownConnection != isConnected) {
+            String msg = isConnected ? "Alat Terhubung Kembali" : "Alat Terputus!";
+            Toast.makeText(getContext(), msg, Toast.LENGTH_SHORT).show();
+        }
+        lastKnownConnection = isConnected;
+    }
+
+    @Override
+    public void onEspConnectionChanged(boolean isConnected) {
+        if (isAdded()) updateConnectionUI();
+    }
+
     private void showWifiConfigDialog() {
-        View dialogView = LayoutInflater.from(getContext()).inflate(R.layout.dialog_config_wifi, null);
+        boolean isConnected = false;
+        if (getActivity() instanceof MainActivity) isConnected = ((MainActivity) getActivity()).getEspConnectionStatus();
+        
+        if (!isConnected) {
+            new AlertDialog.Builder(requireContext())
+                .setTitle("Alat Sedang Offline")
+                .setMessage("Ganti WiFi hanya bisa dilakukan saat alat sedang Online agar perintah dapat diterima.")
+                .setPositiveButton("Ok", null)
+                .show();
+            return;
+        }
+
+        View dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_config_wifi, null);
         EditText etSsid = dialogView.findViewById(R.id.et_dialog_ssid);
         EditText etPass = dialogView.findViewById(R.id.et_dialog_password);
 
-        new AlertDialog.Builder(getContext())
+        new AlertDialog.Builder(requireContext())
                 .setTitle("Ganti WiFi Alat")
-                .setMessage("ESP32 akan mencoba menyambung ke WiFi baru. Status koneksi akan diperbarui setelah berhasil.")
+                .setMessage("Masukkan SSID dan Password baru. Status WiFi akan menjadi 'Sinkronisasi' sementara alat menghubungkan ulang.")
                 .setView(dialogView)
-                .setPositiveButton("Sambungkan", (dialog, which) -> {
+                .setPositiveButton("Hubungkan", (dialog, which) -> {
                     String s = etSsid.getText().toString().trim();
                     String p = etPass.getText().toString().trim();
-                    if (!s.isEmpty() && !p.isEmpty()) {
-                        Map<String, Object> w = new HashMap<>();
-                        w.put("ssid", s); 
-                        w.put("password", p);
-                        w.put("pending_update", true); // Trigger tanda sedang proses
-                        dbMonitoring.child("wifi_config").updateChildren(w);
+                    if (!s.isEmpty()) {
+                        Map<String, Object> wifiUpdates = new HashMap<>();
+                        wifiUpdates.put("wifi_config/ssid", s);
+                        wifiUpdates.put("wifi_config/password", p);
+                        wifiUpdates.put("wifi_config/pending_update", true);
                         
-                        tvConnStatus.setText("Sedang Menghubungkan...");
-                        tvConnStatus.setTextColor(getResources().getColor(android.R.color.holo_orange_dark));
-                        Toast.makeText(getContext(), "Instruksi dikirim ke alat...", Toast.LENGTH_SHORT).show();
+                        dbMonitoring.updateChildren(wifiUpdates).addOnSuccessListener(aVoid -> {
+                            Toast.makeText(requireContext(), "Konfigurasi terkirim! Menunggu sinkronisasi alat...", Toast.LENGTH_LONG).show();
+                            tvCurrentWifi.setText("Sinkronisasi...");
+                            tvCurrentWifi.setTextColor(getResources().getColor(android.R.color.holo_orange_dark));
+                        });
                     }
                 })
                 .setNegativeButton("Batal", null)
                 .show();
     }
 
-    private void monitorConfigAndConnection() {
+    private void monitorConfig() {
         configListener = new ValueEventListener() {
             @Override
             public void onDataChange(@NonNull DataSnapshot snapshot) {
                 if (!isAdded()) return;
                 
                 String currentSsid = snapshot.child("wifi_config").child("current_ssid").getValue(String.class);
-                tvCurrentWifi.setText(currentSsid != null ? currentSsid : "Tidak Terdeteksi");
-
-                if (isInitialLoad) {
-                    Object pObj = snapshot.child("batas_panas").getValue();
-                    Object aObj = snapshot.child("batas_aman").getValue();
-                    if (pObj != null) etBatasPanas.setText(pObj.toString());
-                    if (aObj != null) etBatasAman.setText(aObj.toString());
-                    isInitialLoad = false;
+                Boolean isPending = snapshot.child("wifi_config").child("pending_update").getValue(Boolean.class);
+                
+                if (Boolean.TRUE.equals(isPending)) {
+                    tvCurrentWifi.setText("Sinkronisasi...");
+                    tvCurrentWifi.setTextColor(getResources().getColor(android.R.color.holo_orange_dark));
+                } else {
+                    tvCurrentWifi.setText(currentSsid != null ? currentSsid : "WiFi Terhubung");
+                    tvCurrentWifi.setTextColor(getResources().getColor(R.color.tofu_orange));
                 }
 
-                // Logika Deteksi Koneksi yang lebih cepat (20 Detik)
-                Object lastSeenObj = snapshot.child("last_seen").getValue();
-                if (lastSeenObj instanceof Number) {
-                    long lastSeen = ((Number) lastSeenObj).longValue();
-                    long currentTime = System.currentTimeMillis();
-                    long diff = Math.abs(currentTime - lastSeen);
-                    
-                    if (diff < 20000) { // Toleransi 20 detik
-                        tvConnStatus.setText("Terhubung");
-                        tvConnStatus.setTextColor(getResources().getColor(android.R.color.holo_green_dark));
-                    } else {
-                        tvConnStatus.setText("Alat Offline");
-                        tvConnStatus.setTextColor(getResources().getColor(android.R.color.holo_red_dark));
+                Object pObj = snapshot.child("batas_panas").getValue();
+                Object aObj = snapshot.child("batas_aman").getValue();
+
+                if (pObj != null && (isInitialLoad || !etBatasPanas.hasFocus())) {
+                    try {
+                        float p = Float.parseFloat(pObj.toString());
+                        etBatasPanas.setText(String.format(Locale.US, "%.1f", p));
+                    } catch (Exception e) {
+                        etBatasPanas.setText(pObj.toString());
                     }
                 }
+
+                if (aObj != null && (isInitialLoad || !etBatasAman.hasFocus())) {
+                    try {
+                        float a = Float.parseFloat(aObj.toString());
+                        etBatasAman.setText(String.format(Locale.US, "%.1f", a));
+                    } catch (Exception e) {
+                        etBatasAman.setText(aObj.toString());
+                    }
+                }
+                
+                isInitialLoad = false;
             }
             @Override public void onCancelled(@NonNull DatabaseError error) {}
         };

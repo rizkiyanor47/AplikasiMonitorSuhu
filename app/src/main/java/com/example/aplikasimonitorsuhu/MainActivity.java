@@ -1,17 +1,25 @@
 package com.example.aplikasimonitorsuhu;
 
 import android.Manifest;
+import android.app.AlertDialog;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
+import android.media.AudioAttributes;
+import android.media.Ringtone;
+import android.media.RingtoneManager;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.VibrationEffect;
+import android.os.Vibrator;
 import android.util.Log;
+import android.view.WindowManager;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
@@ -34,7 +42,6 @@ import com.google.firebase.database.ValueEventListener;
 
 public class MainActivity extends AppCompatActivity {
 
-    // Interface agar Fragment bisa menerima update status koneksi ESP32
     public interface EspConnectionListener {
         void onEspConnectionChanged(boolean isConnected);
     }
@@ -48,10 +55,10 @@ public class MainActivity extends AppCompatActivity {
     private DatabaseReference monitoringRef;
     private ValueEventListener monitoringListener;
     private long lastSeenTime = 0;
-    private boolean isEspConnected = true; 
+    private boolean mIsEspConnected = true; 
     private boolean firstCheckDone = false;
     private long serverTimeOffset = 0;
-    
+
     private final Handler connHandler = new Handler(Looper.getMainLooper());
     private Runnable connRunnable;
 
@@ -60,33 +67,24 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        
-        getWindow().setFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE, android.view.WindowManager.LayoutParams.FLAG_SECURE);
 
+        getWindow().setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE);
         setContentView(R.layout.activity_main);
         
         mAuth = FirebaseAuth.getInstance();
         FirebaseUser user = mAuth.getCurrentUser();
-        
+
         if (user == null) {
             redirectToLogin();
             return;
         }
 
-        setContentView(R.layout.activity_main);
         checkNotificationPermission();
-
         isJustLoggedIn = getIntent().getBooleanExtra("IS_NEW_LOGIN", false);
         loadLocalSession();
-        
-        String intentSessionId = getIntent().getStringExtra("EXTRA_SESSION_ID");
-        if (intentSessionId != null && !intentSessionId.isEmpty()) {
-            localSessionId = intentSessionId;
-        }
-        
+
         setupSessionSecurity(user.getUid());
 
-        // Sinkronisasi Waktu Server Firebase untuk akurasi status koneksi
         DatabaseReference offsetRef = FirebaseDatabase.getInstance(DB_URL).getReference(".info/serverTimeOffset");
         offsetRef.addValueEventListener(new ValueEventListener() {
             @Override
@@ -145,25 +143,17 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void setupSessionSecurity(String userId) {
-        sessionRef = FirebaseDatabase.getInstance(DB_URL)
-                .getReference("users")
-                .child(userId)
-                .child("current_session_id");
-
+        sessionRef = FirebaseDatabase.getInstance(DB_URL).getReference("users").child(userId).child("current_session_id");
         sessionListener = new ValueEventListener() {
             @Override
             public void onDataChange(@NonNull DataSnapshot snapshot) {
                 if (!snapshot.exists()) return;
                 String remoteSessionId = snapshot.getValue(String.class);
-                if (remoteSessionId == null) return;
-                if (remoteSessionId.equals(localSessionId)) {
-                    isJustLoggedIn = false;
-                } else if (!isJustLoggedIn && !localSessionId.isEmpty()) {
-                    if (!isFinishing()) handleMultiLogin();
+                if (remoteSessionId != null && !remoteSessionId.equals(localSessionId) && !localSessionId.isEmpty() && !isJustLoggedIn) {
+                    handleMultiLogin();
                 }
             }
-            @Override
-            public void onCancelled(@NonNull DatabaseError error) { }
+            @Override public void onCancelled(@NonNull DatabaseError error) { }
         };
         sessionRef.addValueEventListener(sessionListener);
     }
@@ -173,12 +163,13 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onDataChange(@NonNull DataSnapshot snapshot) {
                 Object obj = snapshot.child("last_seen").getValue();
-                if (obj instanceof Number) {
-                    lastSeenTime = ((Number) obj).longValue();
+                if (obj != null) {
+                    try {
+                        lastSeenTime = Long.parseLong(obj.toString());
+                    } catch (Exception ignored) {}
                 }
             }
-            @Override
-            public void onCancelled(@NonNull DatabaseError error) {}
+            @Override public void onCancelled(@NonNull DatabaseError error) {}
         };
         monitoringRef.addValueEventListener(monitoringListener);
 
@@ -189,31 +180,26 @@ public class MainActivity extends AppCompatActivity {
                     long currentTime = System.currentTimeMillis() + serverTimeOffset;
                     long diff = Math.abs(currentTime - lastSeenTime);
 
+                    // PERBAIKAN: Lebih toleran terhadap kesalahan waktu alat (misal alat tahun 2026)
+                    // Kita anggap online jika selisih < 2 menit ATAU timestamp di masa depan (error RTC)
+                    boolean isConnected = (diff < 120000) || (lastSeenTime > currentTime);
 
-                    // Atau jika selisih sangat besar (Indikasi clock drift alat, tapi data tetap masuk)
-                    boolean currentConn = (diff < 45000 || diff > 3600000);
-
-                    if (!firstCheckDone) {
-                        isEspConnected = currentConn;
+                    if (!firstCheckDone || isConnected != mIsEspConnected) {
+                        mIsEspConnected = isConnected;
                         firstCheckDone = true;
-                        broadcastEspStatus(currentConn);
-                    } else if (currentConn != isEspConnected) {
-                        isEspConnected = currentConn;
-                        broadcastEspStatus(currentConn);
-                        if (currentConn) {
-                            Toast.makeText(MainActivity.this, "Alat Terhubung Kembali", Toast.LENGTH_SHORT).show();
-                        } else {
-                            Toast.makeText(MainActivity.this, "Koneksi Alat Terputus", Toast.LENGTH_LONG).show();
-                        }
+                        broadcastEspStatus(isConnected);
                     }
                 }
-                connHandler.postDelayed(this, 1000);
+                connHandler.postDelayed(this, 5000);
             }
         };
         connHandler.post(connRunnable);
     }
 
-    // Broadcast status koneksi ESP32 ke semua Fragment yang aktif
+    public boolean getEspConnectionStatus() {
+        return mIsEspConnected;
+    }
+
     private void broadcastEspStatus(boolean isConnected) {
         for (Fragment fragment : getSupportFragmentManager().getFragments()) {
             if (fragment instanceof EspConnectionListener && fragment.isAdded()) {
@@ -222,22 +208,9 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    // Getter agar Fragment bisa cek status saat pertama kali dibuat
-    public boolean isEspConnected() {
-        return isEspConnected;
-    }
-
     public void handleMultiLogin() {
         if (sessionRef != null && sessionListener != null) sessionRef.removeEventListener(sessionListener);
         mAuth.signOut();
-        try {
-            MasterKey masterKey = new MasterKey.Builder(this).setKeyScheme(MasterKey.KeyScheme.AES256_GCM).build();
-            SharedPreferences sp = EncryptedSharedPreferences.create(this, "user_session", masterKey,
-                    EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-                    EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM);
-            sp.edit().clear().commit();
-        } catch (Exception ignored) {}
-        Toast.makeText(this, "Akun digunakan di perangkat lain.", Toast.LENGTH_LONG).show();
         redirectToLogin();
     }
 
@@ -253,6 +226,6 @@ public class MainActivity extends AppCompatActivity {
         super.onDestroy();
         if (sessionRef != null && sessionListener != null) sessionRef.removeEventListener(sessionListener);
         if (monitoringRef != null && monitoringListener != null) monitoringRef.removeEventListener(monitoringListener);
-        if (connHandler != null && connRunnable != null) connHandler.removeCallbacks(connRunnable);
+        connHandler.removeCallbacks(connRunnable);
     }
 }

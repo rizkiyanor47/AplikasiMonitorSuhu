@@ -14,7 +14,7 @@
         android:background="@drawable/bg_gradient"
         app:layout_constraintTop_toTopOf="parent" />
 
-    <!-- Tombol Profil (Navigasi ke Profil) -->
+    <!-- Tombol Profil -->
     <FrameLayout
         android:id="@+id/btn_profile_nav"
         android:layout_width="45dp"
@@ -34,7 +34,7 @@
             android:layout_height="wrap_content"
             android:layout_gravity="center"
             android:text="--"
-            android:textColor="@color/orange_start"
+            android:textColor="@color/tofu_orange"
             android:textSize="18sp"
             android:textStyle="bold" />
     </FrameLayout>
@@ -69,7 +69,8 @@
             android:orientation="vertical"
             android:paddingTop="24dp">
 
-            <RelativeLayout
+            <!-- Area Judul & Filter (Gunakan ConstraintLayout agar tidak bertumpuk) -->
+            <androidx.constraintlayout.widget.ConstraintLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginHorizontal="24dp"
@@ -77,22 +78,31 @@
 
                 <TextView
                     android:id="@+id/tv_history_title"
-                    android:layout_width="wrap_content"
+                    android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:text="Riwayat Pendinginan"
                     android:textColor="@color/tofu_brown"
-                    android:textSize="22sp"
-                    android:textStyle="bold" />
+                    android:textSize="20sp"
+                    android:textStyle="bold"
+                    app:layout_constraintBottom_toBottomOf="parent"
+                    app:layout_constraintEnd_toStartOf="@+id/spinner_filter"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toTopOf="parent"
+                    app:layout_constraintHorizontal_bias="0"
+                    android:layout_marginEnd="8dp" />
 
                 <Spinner
                     android:id="@+id/spinner_filter"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_alignParentEnd="true"
-                    android:layout_centerVertical="true" />
-            </RelativeLayout>
+                    android:background="@drawable/bg_badge_white"
+                    android:padding="4dp"
+                    app:layout_constraintBottom_toBottomOf="parent"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintTop_toTopOf="parent" />
+            </androidx.constraintlayout.widget.ConstraintLayout>
 
-            <!-- RecyclerView (Data otomatis dari Firebase) -->
+            <!-- RecyclerView -->
             <androidx.recyclerview.widget.RecyclerView
                 android:id="@+id/rv_history"
                 android:layout_width="match_parent"
